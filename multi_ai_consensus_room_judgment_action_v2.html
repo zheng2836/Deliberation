@@ -1,0 +1,3204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>多 AI 审议室 / 共识引擎</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(18, 25, 45, 0.92);
+      --panel-2: rgba(25, 34, 58, 0.94);
+      --card: rgba(32, 42, 70, 0.94);
+      --card-soft: rgba(40, 52, 86, 0.76);
+      --line: rgba(154, 170, 210, 0.18);
+      --text: #eef3ff;
+      --muted: #a9b5d1;
+      --muted-2: #7e8aa8;
+      --accent: #7aa2ff;
+      --accent-2: #9d7aff;
+      --good: #52d68a;
+      --warn: #ffd166;
+      --bad: #ff6b6b;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+      --radius-sm: 14px;
+      --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background:
+        radial-gradient(circle at 15% 5%, rgba(122, 162, 255, 0.22), transparent 32%),
+        radial-gradient(circle at 90% 0%, rgba(157, 122, 255, 0.18), transparent 32%),
+        radial-gradient(circle at 50% 110%, rgba(82, 214, 138, 0.10), transparent 38%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      color: inherit;
+      transition: transform .16s ease, opacity .16s ease, background .16s ease, border-color .16s ease;
+    }
+
+    button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    button:not(:disabled):active { transform: translateY(1px) scale(.99); }
+
+    .app {
+      width: min(1480px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 26px 0 44px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: linear-gradient(145deg, var(--accent), var(--accent-2));
+      box-shadow: 0 18px 40px rgba(122, 162, 255, .25);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      letter-spacing: -1px;
+    }
+
+    .brand h1 {
+      font-size: 22px;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--muted-2);
+      box-shadow: 0 0 0 5px rgba(126, 138, 168, .10);
+    }
+
+    .dot.running { background: var(--warn); box-shadow: 0 0 0 5px rgba(255, 209, 102, .12); }
+    .dot.done { background: var(--good); box-shadow: 0 0 0 5px rgba(82, 214, 138, .12); }
+    .dot.error { background: var(--bad); box-shadow: 0 0 0 5px rgba(255, 107, 107, .12); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+
+    .panel-header {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .panel-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .panel-body { padding: 18px; }
+
+    .section {
+      margin-bottom: 18px;
+    }
+
+    .section:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: rgba(7, 11, 22, .58);
+      color: var(--text);
+      border-radius: 14px;
+      outline: none;
+      padding: 12px 13px;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+
+    textarea:focus, input:focus, select:focus {
+      border-color: rgba(122, 162, 255, .65);
+      box-shadow: 0 0 0 4px rgba(122, 162, 255, .10);
+      background: rgba(7, 11, 22, .76);
+    }
+
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    .btn {
+      border-radius: 14px;
+      padding: 11px 14px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .btn:hover:not(:disabled) { background: rgba(255,255,255,.10); }
+
+    .btn-primary {
+      background: linear-gradient(145deg, var(--accent), var(--accent-2));
+      border-color: rgba(255,255,255,.12);
+      color: #fff;
+      box-shadow: 0 14px 28px rgba(122, 162, 255, .18);
+    }
+
+    .btn-primary:hover:not(:disabled) { opacity: .94; }
+
+    .btn-ghost {
+      color: var(--muted);
+      background: transparent;
+    }
+
+    .btn-danger {
+      background: rgba(255, 107, 107, .13);
+      border-color: rgba(255, 107, 107, .28);
+      color: #ffc9c9;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-row .btn-primary { flex: 1 1 210px; }
+
+    .small-note {
+      color: var(--muted-2);
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      background: rgba(8, 12, 24, .34);
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+    }
+
+    .tab {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    .tab.active {
+      background: rgba(122, 162, 255, .12);
+      border-color: rgba(122, 162, 255, .26);
+      color: var(--text);
+    }
+
+    .workspace {
+      min-height: calc(100vh - 118px);
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .hero {
+      padding: 22px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(145deg, rgba(122, 162, 255, .09), transparent 48%),
+        rgba(255,255,255,.02);
+    }
+
+    .hero h2 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: -0.04em;
+      line-height: 1.16;
+    }
+
+    .hero p {
+      color: var(--muted);
+      line-height: 1.7;
+      margin: 12px 0 0;
+      max-width: 780px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .card {
+      background: var(--card-soft);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 15px;
+      min-width: 0;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .card p, .card li {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .card p { margin: 0; }
+    .card ul { margin: 0; padding-left: 18px; }
+
+    .timeline {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .stage {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.035);
+      overflow: hidden;
+    }
+
+    .stage-head {
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .stage-title {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-weight: 750;
+      font-size: 14px;
+    }
+
+    .stage-index {
+      width: 25px;
+      height: 25px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: rgba(122, 162, 255, .14);
+      color: #cddaff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(0,0,0,.10);
+    }
+
+    .stage-body {
+      padding: 14px 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .empty {
+      color: var(--muted-2);
+      font-size: 13px;
+      line-height: 1.7;
+      padding: 8px 0;
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .role-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(7, 11, 22, .34);
+      overflow: hidden;
+    }
+
+    .role-card-head {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .role-name {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 750;
+      font-size: 14px;
+    }
+
+    .role-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      background: rgba(122, 162, 255, .14);
+    }
+
+    .role-body {
+      padding: 13px 14px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 105px 1fr;
+      gap: 8px;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .kv b { color: var(--text); }
+    .kv span { color: var(--muted); }
+
+    .discussion {
+      display: grid;
+      gap: 12px;
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: rgba(122, 162, 255, .12);
+      border: 1px solid var(--line);
+    }
+
+    .bubble {
+      border: 1px solid var(--line);
+      background: rgba(7, 11, 22, .38);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    .bubble-head {
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .bubble-body {
+      padding: 13px;
+      white-space: pre-wrap;
+      line-height: 1.68;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .result-box {
+      background: linear-gradient(145deg, rgba(82, 214, 138, .10), rgba(122, 162, 255, .08));
+      border: 1px solid rgba(82, 214, 138, .20);
+      border-radius: 20px;
+      padding: 18px;
+    }
+
+    .result-box h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .result-box p, .result-box li {
+      line-height: 1.75;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .result-box p { margin: 0 0 12px; white-space: pre-wrap; }
+
+    .review-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .review-card {
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.16);
+      border-radius: 15px;
+      padding: 11px;
+    }
+
+    .review-card b {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .meter {
+      width: 100%;
+      height: 8px;
+      border-radius: 99px;
+      background: rgba(255,255,255,.10);
+      overflow: hidden;
+    }
+
+    .meter > div {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--warn), var(--good));
+      border-radius: inherit;
+    }
+
+    .review-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,.03);
+      overflow: hidden;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 13px 14px;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 13px;
+      border-bottom: 1px solid transparent;
+    }
+
+    details[open] summary { border-bottom-color: var(--line); }
+
+    .details-content {
+      padding: 14px;
+      color: var(--muted);
+      line-height: 1.68;
+      white-space: pre-wrap;
+      font-size: 13px;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .history-item {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,.035);
+      padding: 13px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .history-title {
+      font-weight: 750;
+      line-height: 1.4;
+    }
+
+    .history-meta {
+      color: var(--muted-2);
+      font-size: 12px;
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mini-btn {
+      padding: 7px 9px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+
+    .output-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .output-title-row h3 { margin: 0; }
+
+    .head-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .retry-btn {
+      padding: 5px 8px;
+      border-radius: 9px;
+      border: 1px solid rgba(122, 162, 255, .30);
+      background: rgba(122, 162, 255, .10);
+      color: #dce6ff;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .retry-btn:hover:not(:disabled) {
+      background: rgba(122, 162, 255, .18);
+      border-color: rgba(122, 162, 255, .48);
+    }
+
+    .retry-btn.retrying {
+      color: var(--warn);
+      border-color: rgba(255, 209, 102, .38);
+      background: rgba(255, 209, 102, .10);
+    }
+
+    .console {
+      height: 210px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.24);
+      border-radius: 14px;
+      padding: 12px;
+      font-family: var(--mono);
+      color: #b9c6e8;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .progress-wrap {
+      height: 9px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--good));
+      transition: width .25s ease;
+    }
+
+    .tag-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 12px;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1120px) {
+      .layout { grid-template-columns: 1fr; }
+      .workspace { min-height: 0; }
+      .cards { grid-template-columns: 1fr; }
+      .review-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 720px) {
+      .app { width: min(100vw - 18px, 1480px); padding-top: 12px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .row, .row-3, .role-grid { grid-template-columns: 1fr; }
+      .hero h2 { font-size: 23px; }
+      .message { grid-template-columns: 1fr; }
+      .avatar { display: none; }
+      .review-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">AI</div>
+        <div>
+          <h1>多 AI 审议室 / 共识引擎</h1>
+          <p>标准化 → 合理内核 → 现实判断 → 行动建议 → 用户决策报告</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="pill"><span id="runDot" class="dot"></span><span id="runStatus">待开始</span></span>
+        <button class="btn btn-ghost" id="exportBtn">导出 JSON</button>
+        <button class="btn btn-ghost" id="clearBtn">清空当前</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">输入与控制</h2>
+            <p class="panel-subtitle">第一版只做判断质量闭环，不做世界模拟、沙盘、人格演出。</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="section">
+            <label for="userView">用户原始观点 / 判断 / 立场</label>
+            <textarea id="userView" placeholder="例如：某个判断、立场、方案、选择是否成立，或在什么条件下成立。"></textarea>
+            <div class="small-note">系统会先保留原话，再标准化命题、拆概念、拆维度，禁止直接下结论。</div>
+          </div>
+
+          <div class="section">
+            <label for="rounds">交叉质询轮数</label>
+            <input id="rounds" type="number" min="1" value="3" />
+            <div class="small-note">不使用签字阈值、认可百分比、平均分或“全体通过”。最终只输出结论状态与稳定性说明。</div>
+          </div>
+
+          <div class="section row">
+            <div>
+              <label for="maxTokens">单次 token 上限（留空=不限制）</label>
+              <input id="maxTokens" type="number" min="1" placeholder="留空则不传 max_tokens" />
+            </div>
+            <div>
+              <label for="temperature">温度</label>
+              <input id="temperature" type="number" min="0" max="1.2" step="0.1" value="0.4" />
+            </div>
+          </div>
+
+          <div class="section">
+            <label for="apiBase">OpenAI 兼容接口</label>
+            <input id="apiBase" value="https://joker404.xyz/agent/chat/completions" />
+            <div class="small-note">浏览器直连需要接口允许 CORS。真实调用默认使用 stream:true 流式输出；若失败，可先用“演示模式”跑完整流程。</div>
+          </div>
+
+          <div class="section row">
+            <div>
+              <label for="apiKey">API Key，可为空</label>
+              <input id="apiKey" type="password" placeholder="sk-... / 留空" />
+            </div>
+            <div>
+              <label for="modelMode">模型分配</label>
+              <select id="modelMode">
+                <option value="single">全部使用同一模型</option>
+                <option value="rotate" selected>按角色轮询模型</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="section">
+            <label for="models">模型列表，逗号分隔</label>
+            <input id="models" value="deepseek-chat, deepseek-reasoner, qwen-plus, qwen-plus-thinking" />
+          </div>
+
+          <div class="section btn-row">
+            <button class="btn btn-primary" id="startBtn">开始审议</button>
+            <button class="btn" id="demoBtn">演示模式</button>
+            <button class="btn btn-danger" id="stopBtn" disabled>停止</button>
+          </div>
+
+          <div class="section">
+            <label>运行进度</label>
+            <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+            <div class="small-note" id="progressText">等待输入观点。</div>
+          </div>
+
+          <div class="section">
+            <label>运行日志</label>
+            <div class="console" id="console"></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel workspace">
+        <nav class="tabs" id="tabs">
+          <button class="tab active" data-view="overview">产品 PRD</button>
+          <button class="tab" data-view="process">审议过程</button>
+          <button class="tab" data-view="result">共识结果</button>
+          <button class="tab" data-view="history">历史记录</button>
+          <button class="tab" data-view="mechanism">系统机制</button>
+        </nav>
+
+        <div id="overview" class="view active">
+          <section class="hero">
+            <h2>把用户观点送进 AI 审议室，先拆清问题，再输出可用、可校准、可行动的现实判断。</h2>
+            <p>本产品不是多 AI 聊天玩具，也不是 MiroFish 式世界推演。当前闭环是：输入观点，先标准化命题，再拆概念与维度，经过独立判断、交叉质询、合理内核提炼、现实语境解释、行动转化和最终自检，默认输出普通用户能直接使用的决策报告。</p>
+          </section>
+          <section class="cards">
+            <div class="card">
+              <h3>产品目标</h3>
+              <p>解决单个 AI 容易被原始表述锚定、过早收敛、忽略边界，或滑向不可知论的问题，通过多角色质检输出有限信息下的稳健判断。</p>
+            </div>
+            <div class="card">
+              <h3>用户价值</h3>
+              <ul>
+                <li>降低单模型幻觉与单角度偏见。</li>
+                <li>看到命题如何被拆分、限定和复核。</li>
+                <li>得到倾向性结论、合理内核、现实机制、行动建议和必要边界。</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>第一版边界</h3>
+              <ul>
+                <li>做观点/策略/价值判断。</li>
+                <li>不做世界模拟、沙盘、头像演出。</li>
+                <li>不把问题强行改成创业压力测试，也不把报告写成学术审稿意见。</li>
+              </ul>
+            </div>
+          </section>
+          <section class="timeline">
+            <div class="stage">
+              <div class="stage-head"><div class="stage-title"><span class="stage-index">1</span>用户流程</div></div>
+              <div class="stage-body">
+                <div class="kv"><b>输入</b><span>用户输入一个观点、判断、看法或带倾向性的结论。</span></div>
+                <div class="kv"><b>标准化</b><span>保留用户原话，改写为清楚、可讨论、可检验的命题，并列出不能直接下结论的部分。</span></div>
+                <div class="kv"><b>维度拆解</b><span>先检查概念、对象、范围、时间、条件、主体、标准、证据、反例和边界。</span></div>
+                <div class="kv"><b>独立判断</b><span>各角色互不可见地判断稳定部分、条件部分、证据不足部分和过度断言。</span></div>
+                <div class="kv"><b>交叉质询</b><span>每轮必须检查遗漏维度、反例边界、证据类型、主体差异和过度断言。</span></div>
+                <div class="kv"><b>质量复核</b><span>各角色不再签字，而是指出稳定判断、条件判断、证据不足、过度绝对化和不可抹平分歧。</span></div>
+                <div class="kv"><b>输出</b><span>默认展示标准化问题、维度拆解、稳定判断、条件判断、主要分歧、降级表达、未验证前提、结论状态和验证方式。</span></div>
+              </div>
+            </div>
+            <div class="stage">
+              <div class="stage-head"><div class="stage-title"><span class="stage-index">2</span>页面结构</div></div>
+              <div class="stage-body">
+                <div class="tag-row">
+                  <span class="tag">首页 / PRD</span>
+                  <span class="tag">输入区</span>
+                  <span class="tag">讨论过程区</span>
+                  <span class="tag">共识结果区</span>
+                  <span class="tag">历史记录区</span>
+                  <span class="tag">完整讨论展开</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="process" class="view">
+          <section class="timeline">
+            <div class="stage" id="stageNormalize">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">1</span>命题标准化</div>
+                <span class="status-badge" data-status="normalize">未开始</span>
+              </div>
+              <div class="stage-body" id="normalizeBody"><div class="empty">等待系统保留原话、标准化命题、列出关键概念、判断范围和不能直接下结论的部分。</div></div>
+            </div>
+            <div class="stage" id="stageDimensions">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">2</span>通用维度拆解</div>
+                <span class="status-badge" data-status="dimensions">未开始</span>
+              </div>
+              <div class="stage-body" id="dimensionsBody"><div class="empty">等待系统检查概念、对象、范围、时间、条件、主体、标准、证据、反例和边界。</div></div>
+            </div>
+            <div class="stage" id="stageIndependent">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">3</span>并发独立判断</div>
+                <span class="status-badge" data-status="independent">未开始</span>
+              </div>
+              <div class="stage-body" id="independentBody"><div class="empty">每个 AI 在互不可见条件下输出稳定判断、条件判断、证据不足、过度断言和需追问的问题。</div></div>
+            </div>
+            <div class="stage" id="stageDiscuss">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">4</span>交叉质询与多轮修正</div>
+                <span class="status-badge" data-status="discuss">未开始</span>
+              </div>
+              <div class="stage-body" id="discussionBody"><div class="empty">讨论不是自由闲聊，每轮必须检查遗漏维度、反例边界、证据不足和过度断言。</div></div>
+            </div>
+            <div class="stage" id="stageKernel">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">5</span>合理内核提炼</div>
+                <span class="status-badge" data-status="kernel">未开始</span>
+              </div>
+              <div class="stage-body" id="kernelBody"><div class="empty">等待系统提炼原命题的最强版本、合理内核、现实价值和降级表达。</div></div>
+            </div>
+            <div class="stage" id="stageReality">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">6</span>现实语境解释</div>
+                <span class="status-badge" data-status="reality">未开始</span>
+              </div>
+              <div class="stage-body" id="realityBody"><div class="empty">等待系统解释现实场景、社会机制、本土语境和现实意义。</div></div>
+            </div>
+            <div class="stage" id="stageDraft">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">7</span>主持人综合底稿</div>
+                <span class="status-badge" data-status="draft">未开始</span>
+              </div>
+              <div class="stage-body" id="draftBody"><div class="empty">主持人输出两层内容：审议底稿和用户决策结论，不宣布“全体共识”。</div></div>
+            </div>
+            <div class="stage" id="stageAction">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">8</span>行动转化</div>
+                <span class="status-badge" data-status="action">未开始</span>
+              </div>
+              <div class="stage-body" id="actionBody"><div class="empty">等待行动转化者输出判断原则、3-7 天验证、长期策略和低代价修正方式。</div></div>
+            </div>
+            <div class="stage" id="stageReview">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">9</span>质量复核</div>
+                <span class="status-badge" data-status="review">未开始</span>
+              </div>
+              <div class="stage-body" id="reviewBody"><div class="empty">各角色检查主判断、合理内核、现实机制、行动建议、不可知论漂移和伪权威表达。</div></div>
+            </div>
+            <div class="stage" id="stageReport">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">10</span>用户报告压缩</div>
+                <span class="status-badge" data-status="report">未开始</span>
+              </div>
+              <div class="stage-body" id="reportBody"><div class="empty">等待系统把审议底稿压缩成默认展示的用户决策报告。</div></div>
+            </div>
+            <div class="stage" id="stageSelfCheck">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">11</span>最终质量自检</div>
+                <span class="status-badge" data-status="selfcheck">未开始</span>
+              </div>
+              <div class="stage-body" id="selfCheckBody"><div class="empty">等待检查不可知论漂移、审稿化倾向、术语密度和行动建议质量。</div></div>
+            </div>
+          </section>
+        </div>
+
+        <div id="result" class="view">
+          <section class="timeline">
+            <div id="resultBody">
+              <div class="empty">审议完成后，此处展示结构化判断报告。完整过程默认折叠。</div>
+            </div>
+          </section>
+        </div>
+
+        <div id="history" class="view">
+          <section class="timeline">
+            <div class="stage">
+              <div class="stage-head">
+                <div class="stage-title"><span class="stage-index">H</span>历史记录</div>
+                <button class="mini-btn" id="clearHistoryBtn">清空历史</button>
+              </div>
+              <div class="stage-body">
+                <div id="historyList" class="history-list"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="mechanism" class="view">
+          <section class="timeline">
+            <div class="stage">
+              <div class="stage-head"><div class="stage-title"><span class="stage-index">M</span>系统机制设计</div></div>
+              <div class="stage-body">
+                <div class="cards" style="padding:0; grid-template-columns: repeat(2, 1fr);">
+                  <div class="card">
+                    <h3>独立思考机制</h3>
+                    <p>每个角色先单独接收原始观点与标准化命题，不接收其他角色输出，避免初始跟风与观点污染。</p>
+                  </div>
+                  <div class="card">
+                    <h3>交叉质询机制</h3>
+                    <p>所有初始判断进入共享上下文。每轮要求角色检查遗漏维度、反例边界、证据不足、主体差异和过度断言。</p>
+                  </div>
+                  <div class="card">
+                    <h3>断言降级机制</h3>
+                    <p>提示词强制扫描“完全、必然、所有、唯一、等于零”等绝对化表达；证据不足时必须降级并补充适用条件。</p>
+                  </div>
+                  <div class="card">
+                    <h3>结论状态机制</h3>
+                    <p>主持人先出综合草案，不强行制造一致。最终状态只能是：稳定结论、条件性结论、多分支结论、暂不可收敛。</p>
+                  </div>
+                </div>
+                <details open>
+                  <summary>如何避免沦为普通群聊玩具</summary>
+                  <div class="details-content">1. 所有 AI 必须先独立思考。
+2. 群聊每轮不是闲聊，而是固定字段：反对点、理由、被说服点、结论变化。
+3. 主持人只组织收敛，不大量输出新立场。
+4. 综合草案必须经过质量复核，不使用签字、投票率、认可百分比。
+5. 默认给用户结果，完整聊天记录折叠，避免噪音压过结论。
+6. 每个结论必须保留条件、边界、分歧、未验证前提和验证方式，避免把审议包装成不可质疑的定论。</div>
+                </details>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const CONCLUSION_STATES = ['稳定结论', '条件性结论', '多分支结论', '暂不可收敛'];
+    const ABSOLUTE_TERMS = ['完全', '一定', '必然', '不可能', '没有任何', '所有', '全部', '唯一', '绝对', '永远', '必定', '根本没有', '毫无', '彻底', '等于零'];
+
+    const ROLES = [
+      {
+        id: 'definition',
+        name: '定义澄清者',
+        icon: '≡',
+        color: '#7aa2ff',
+        duty: '澄清关键词；发现概念混用；指出判断对象和范围不清的问题；但不能停留在“概念不清”，必须说明概念澄清后最可能的判断方向。',
+        system: '你是「定义澄清者」。你的职责是澄清关键词、判断对象、判断范围和评价标准。你不负责迎合用户，但也不能把所有问题都推给“定义不清”。澄清后必须说明：在最常见理解下，命题的现实倾向是什么；哪些内容可作为主结论，哪些只能作为边界。'
+      },
+      {
+        id: 'dimensions',
+        name: '维度拆解者',
+        icon: '▦',
+        color: '#9d7aff',
+        duty: '把问题拆成多个判断维度；防止单一结论覆盖复杂情况；同时标明哪些维度影响主判断，哪些只是边界校准。',
+        system: '你是「维度拆解者」。你的职责是把命题拆成概念、对象、范围、时间、条件、主体、标准、证据、反例、边界等维度。你不能只拆不判，必须指出最影响现实判断的 2-4 个核心维度，并把边界条件压在主判断之后。'
+      },
+      {
+        id: 'evidence',
+        name: '证据审查者',
+        icon: '∵',
+        color: '#52d68a',
+        duty: '区分事实、推测、价值判断；检查无依据数字；标明证据强度；防止把经验包装成普遍结论。',
+        system: '你是「证据审查者」。你的职责是区分事实、推测、价值判断，找出无依据数字、虚假精确、个案外推和未经证明的因果链。禁止输出没有来源或算法支撑的百分比。你必须用“强/中/弱”标明证据强度：强=明确事实或数据；中=常见现实机制或多个案例类型；弱=逻辑可能性或经验推测。证据不足时不能直接写“无法判断”，而要给出有限信息下的保守判断。'
+      },
+      {
+        id: 'boundary',
+        name: '反例与边界审查者',
+        icon: '⟂',
+        color: '#ffd166',
+        duty: '搜索能削弱绝对判断的反例；指出结论在哪些边界外不成立；但反例不能淹没主判断。',
+        system: '你是「反例与边界审查者」。你的职责是寻找反例、边界条件、适用范围和不适用范围。你不是为了反对而反对，而是为了防止绝对化与过度外推。反例只能用于校准，不能用少数反例取消现实倾向。你必须先承认主判断可能抓住的真实风险，再说明边界。'
+      },
+      {
+        id: 'constraints',
+        name: '现实约束审查者',
+        icon: '◎',
+        color: '#ff9f7a',
+        duty: '检查成本、风险、限制、执行难度；防止结论过于理想化；把风险转化为行动策略。',
+        system: '你是「现实约束审查者」。你的职责是检查成本、风险、资源、执行难度、制度/技术/时间限制。但你不能因为存在风险就直接否定全部可能性，必须区分难度、概率、条件和边界。你还必须输出：普通人应采用的保守行动策略、可低成本验证的步骤、判断错误时如何修正。'
+      },
+      {
+        id: 'kernel',
+        name: '合理内核提炼者',
+        icon: '◆',
+        color: '#8bd8bd',
+        duty: '提取原命题最强、最有解释力、最有现实价值的部分；防止只批判不生成判断。',
+        system: '你是「合理内核提炼者」。你的任务不是支持或反对用户，而是在降级绝对化表达后，提取原命题仍然成立、仍然有解释力、仍然有警示价值的部分。你必须回答：1. 原命题最强版本是什么？2. 它抓住了什么现实问题？3. 哪些部分大体成立？4. 哪些部分必须降级？5. 降级后更准确的表达是什么？6. 这个判断对普通人有什么现实提醒？禁止只说“原命题过于绝对”。'
+      },
+      {
+        id: 'context',
+        name: '现实语境解释者',
+        icon: '地',
+        color: '#f0a6ca',
+        duty: '把命题放回现实社会场景，解释利益结构、人际关系、制度环境、市场结构或权力结构。',
+        system: '你是「现实语境解释者」。你的任务是把命题放进现实结构中理解，而不是停留在概念辨析。你必须回答：1. 这个命题通常对应什么现实场景？2. 哪些社会机制、利益结构、人际关系、制度环境、市场结构或权力结构会影响判断？3. 如果命题涉及中国社会，必须加入中国本土语境，而不是只说“缺少跨国比较证据”。4. 可以给出案例类型或常见场景，但不能编造具体数据和假案例。5. 这个命题对普通人的现实意义是什么？'
+      },
+      {
+        id: 'action',
+        name: '行动转化者',
+        icon: '→',
+        color: '#ffcf8a',
+        duty: '把判断转化为用户能执行的现实建议；避免只说需要更多信息。',
+        system: '你是「行动转化者」。你的任务不是继续审查命题，而是把审议结果转化为用户能执行的现实建议。你必须输出：1. 当前最稳的判断原则；2. 用户现实中应该怎么做；3. 应避免什么误区；4. 3-7 天内可以做什么验证；5. 长期策略是什么；6. 如果判断错了，如何以最低代价修正。禁止只说“需要更多信息”“继续观察”。'
+      },
+      {
+        id: 'editor',
+        name: '用户报告编辑者',
+        icon: '文',
+        color: '#c9a7ff',
+        duty: '把审议底稿压缩成普通用户能读懂、能带走、能执行的最终报告。',
+        system: '你是「用户报告编辑者」。你的任务是把复杂审议结果压缩成普通用户能读懂、能带走、能执行的报告。你必须：1. 先给直接结论，再讲边界；2. 先讲合理内核，再讲原命题漏洞；3. 删除或替换过密术语；4. 把“无法严格证明”改写成“现实中应如何谨慎判断”；5. 把“验证命题”转化为“用户怎么做”；6. 保留必要边界，但不得让边界压倒主结论。'
+      },
+      {
+        id: 'host',
+        name: '综合主持人',
+        icon: '◇',
+        color: '#b8c5ff',
+        duty: '生成两层内容：审议底稿和用户决策结论；不强行制造一致；保留有效分歧，但必须给出可用判断。',
+        system: '你是「综合主持人」。你的职责是组织流程、汇总材料、保留有效分歧、降级过度断言，并输出可复核报告。你必须优先生成可用判断，而不是只生成不可下结论的理由。你需要回答：原命题最准确的改写是什么？合理内核是什么？现实中大体对不对？哪些情况下成立或不成立？普通人应如何据此行动？哪些边界必须提醒但不能淹没主结论？禁止制造“全体签字”“平均认可度”“多轮审议完成所以正确”等权威感。'
+      }
+    ];
+
+    const state = {
+      running: false,
+      aborter: null,
+      demo: false,
+      runId: null,
+      original: '',
+      proposition: '',
+      normalizedFull: '',
+      dimensionAnalysis: '',
+      kernelAnalysis: '',
+      realityAnalysis: '',
+      actionPlan: '',
+      selfCheck: '',
+      independent: {},
+      discussion: [],
+      draft: '',
+      reviews: [],
+      final: null,
+      readableReport: null,
+      logs: [],
+      retryJobs: {},
+      history: loadHistory()
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    const els = {
+      userView: $('userView'),
+      rounds: $('rounds'),
+      maxTokens: $('maxTokens'),
+      temperature: $('temperature'),
+      apiBase: $('apiBase'),
+      apiKey: $('apiKey'),
+      modelMode: $('modelMode'),
+      models: $('models'),
+      startBtn: $('startBtn'),
+      demoBtn: $('demoBtn'),
+      stopBtn: $('stopBtn'),
+      runDot: $('runDot'),
+      runStatus: $('runStatus'),
+      progressBar: $('progressBar'),
+      progressText: $('progressText'),
+      console: $('console'),
+      normalizeBody: $('normalizeBody'),
+      dimensionsBody: $('dimensionsBody'),
+      kernelBody: $('kernelBody'),
+      realityBody: $('realityBody'),
+      independentBody: $('independentBody'),
+      discussionBody: $('discussionBody'),
+      draftBody: $('draftBody'),
+      actionBody: $('actionBody'),
+      reviewBody: $('reviewBody'),
+      reportBody: $('reportBody'),
+      selfCheckBody: $('selfCheckBody'),
+      resultBody: $('resultBody'),
+      historyList: $('historyList'),
+      exportBtn: $('exportBtn'),
+      clearBtn: $('clearBtn'),
+      clearHistoryBtn: $('clearHistoryBtn')
+    };
+
+    function nowText() {
+      return new Date().toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function safeText(value) {
+      return String(value ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    }
+
+    function clamp(num, min, max) {
+      return Math.max(min, Math.min(max, Number(num) || 0));
+    }
+
+    function parsePositiveInt(value, fallback = 1) {
+      const n = Number.parseInt(String(value ?? '').trim(), 10);
+      return Number.isFinite(n) && n >= 1 ? n : fallback;
+    }
+
+    function parseOptionalPositiveInt(value) {
+      const raw = String(value ?? '').trim();
+      if (!raw) return null;
+      const n = Number.parseInt(raw, 10);
+      return Number.isFinite(n) && n >= 1 ? n : null;
+    }
+
+    function updateTextElement(id, text) {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = text || '正在等待流式输出...';
+    }
+
+    function setView(viewId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === viewId));
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === viewId));
+    }
+
+    function setStatus(stage, text, mode = '') {
+      const el = document.querySelector(`[data-status="${stage}"]`);
+      if (!el) return;
+      el.textContent = text;
+      el.style.color = mode === 'done' ? 'var(--good)' : mode === 'running' ? 'var(--warn)' : mode === 'error' ? 'var(--bad)' : 'var(--muted)';
+    }
+
+    function setRunStatus(text, mode = '') {
+      els.runStatus.textContent = text;
+      els.runDot.className = `dot ${mode}`.trim();
+    }
+
+    function setProgress(pct, text) {
+      els.progressBar.style.width = `${clamp(pct, 0, 100)}%`;
+      els.progressText.textContent = text || '';
+    }
+
+    function log(line) {
+      const item = `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${line}`;
+      state.logs.push(item);
+      els.console.textContent = state.logs.join('\n');
+      els.console.scrollTop = els.console.scrollHeight;
+    }
+
+    function resetRunVisual() {
+      state.runId = Date.now().toString(36);
+      state.proposition = '';
+      state.normalizedFull = '';
+      state.dimensionAnalysis = '';
+      state.kernelAnalysis = '';
+      state.realityAnalysis = '';
+      state.actionPlan = '';
+      state.selfCheck = '';
+      state.independent = {};
+      state.discussion = [];
+      state.draft = '';
+      state.reviews = [];
+      state.final = null;
+      state.readableReport = null;
+      state.logs = [];
+      state.retryJobs = {};
+      els.console.textContent = '';
+      els.normalizeBody.innerHTML = '<div class="empty">等待系统保留原话、标准化命题、列出关键概念、判断范围和不能直接下结论的部分。</div>';
+      els.dimensionsBody.innerHTML = '<div class="empty">等待系统检查概念、对象、范围、时间、条件、主体、标准、证据、反例和边界。</div>';
+      if (els.kernelBody) els.kernelBody.innerHTML = '<div class="empty">等待系统提炼原命题的合理内核、最强版本和现实提醒。</div>';
+      if (els.realityBody) els.realityBody.innerHTML = '<div class="empty">等待系统解释现实语境、社会机制和本土场景。</div>';
+      els.independentBody.innerHTML = '<div class="empty">每个 AI 在互不可见条件下输出稳定判断、条件判断、证据不足、过度断言和需追问的问题。</div>';
+      els.discussionBody.innerHTML = '<div class="empty">讨论不是自由闲聊，每轮必须检查遗漏维度、反例边界、证据不足和过度断言。</div>';
+      els.draftBody.innerHTML = '<div class="empty">主持人输出审议底稿与用户决策结论，不宣布“全体共识”。</div>';
+      if (els.actionBody) els.actionBody.innerHTML = '<div class="empty">等待行动转化者把判断压缩为可执行建议。</div>';
+      els.reviewBody.innerHTML = '<div class="empty">各角色检查主判断、合理内核、行动建议、不可知论漂移和伪权威表达。</div>';
+      if (els.reportBody) els.reportBody.innerHTML = '<div class="empty">等待用户决策报告生成。</div>';
+      if (els.selfCheckBody) els.selfCheckBody.innerHTML = '<div class="empty">等待最终质量自检。</div>';
+      els.resultBody.innerHTML = '<div class="empty">审议完成后，此处展示结构化判断报告。完整过程默认折叠。</div>';
+      ['normalize','dimensions','independent','discuss','kernel','reality','draft','action','review','report','selfcheck'].forEach(k => setStatus(k, '未开始'));
+      setProgress(0, '准备开始。');
+    }
+
+    function setRunning(isRunning) {
+      state.running = isRunning;
+      els.startBtn.disabled = isRunning;
+      els.demoBtn.disabled = isRunning;
+      els.stopBtn.disabled = !isRunning;
+      setRunStatus(isRunning ? '运行中' : (state.final ? '已完成' : '待开始'), isRunning ? 'running' : (state.final ? 'done' : ''));
+    }
+
+    function getModels() {
+      return els.models.value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    function getModelForRole(index) {
+      const models = getModels();
+      if (!models.length) return 'deepseek-chat';
+      if (els.modelMode.value === 'single') return models[0];
+      return models[index % models.length];
+    }
+
+    function roleIndex(roleId) {
+      return Math.max(0, ROLES.findIndex(r => r.id === roleId));
+    }
+
+    const DELIBERATION_ROLE_IDS = ['definition', 'dimensions', 'evidence', 'boundary', 'constraints', 'kernel', 'context', 'action'];
+    const QUALITY_REVIEW_ROLE_IDS = ['definition', 'dimensions', 'evidence', 'boundary', 'constraints', 'kernel', 'context', 'action', 'editor'];
+
+    function rolesByIds(ids) {
+      return ids.map(id => ROLES.find(r => r.id === id)).filter(Boolean);
+    }
+
+    function getDeliberationRoles() {
+      return rolesByIds(DELIBERATION_ROLE_IDS);
+    }
+
+    function getQualityReviewRoles() {
+      return rolesByIds(QUALITY_REVIEW_ROLE_IDS);
+    }
+
+    function deepClone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function makeLLMRequestSnapshot({ role, messages, model }) {
+      const messagesCopy = deepClone(messages || []);
+      const body = {
+        model,
+        messages: messagesCopy,
+        temperature: clamp(els.temperature.value, 0, 1.2),
+        stream: true
+      };
+      const maxTokens = parseOptionalPositiveInt(els.maxTokens.value);
+      if (maxTokens !== null) body.max_tokens = maxTokens;
+      return {
+        role,
+        model,
+        messages: messagesCopy,
+        url: els.apiBase.value.trim(),
+        key: els.apiKey.value.trim(),
+        body,
+        demo: state.demo,
+        createdAt: nowText()
+      };
+    }
+
+    function retryButtonHTML(retryId) {
+      if (!retryId || !state.retryJobs[retryId]) return '';
+      return `<button class="retry-btn" type="button" data-retry-id="${safeText(retryId)}" title="使用与上次完全相同的请求内容重新调用">重试</button>`;
+    }
+
+    function resultBoxHTML(title, bodyId, retryId, content = '正在等待流式输出...') {
+      return `<div class="result-box">
+        <div class="output-title-row">
+          <h3>${safeText(title)}</h3>
+          <div class="head-actions">${retryButtonHTML(retryId)}</div>
+        </div>
+        <p id="${safeText(bodyId)}">${safeText(content || '正在等待流式输出...')}</p>
+      </div>`;
+    }
+
+    function setRetryButtonState(retryId, running) {
+      document.querySelectorAll('[data-retry-id]').forEach(btn => {
+        if (btn.dataset.retryId !== retryId) return;
+        btn.disabled = Boolean(running);
+        btn.classList.toggle('retrying', Boolean(running));
+        btn.textContent = running ? '重试中' : '重试';
+      });
+    }
+
+    function registerRetryJob(retryId, job) {
+      state.retryJobs[retryId] = { ...job, id: retryId, busy: false };
+      return retryId;
+    }
+
+    async function runRetryJob(retryId) {
+      const job = state.retryJobs[retryId];
+      if (!job || job.busy) return;
+      job.busy = true;
+      setRetryButtonState(retryId, true);
+      const controller = new AbortController();
+      let live = '';
+      try {
+        updateTextElement(job.targetId, '正在用原请求内容重试...');
+        log(`重试开始：${job.label}。`);
+        const content = await callLLM({
+          requestSnapshot: job.request,
+          signal: controller.signal,
+          onDelta: (delta) => {
+            live += delta;
+            updateTextElement(job.targetId, live);
+          }
+        });
+        if (typeof job.onSuccess === 'function') job.onSuccess(content);
+        else updateTextElement(job.targetId, content);
+        log(`重试完成：${job.label}。`);
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        if (typeof job.onError === 'function') job.onError(content);
+        else updateTextElement(job.targetId, content);
+        log(`重试失败：${job.label}｜${error.message}`);
+      } finally {
+        job.busy = false;
+        setRetryButtonState(retryId, false);
+      }
+    }
+
+    async function callLLM({ role, messages, model, signal, onDelta, requestSnapshot }) {
+      const request = requestSnapshot || makeLLMRequestSnapshot({ role, messages, model });
+      if (request.demo) {
+        const content = await demoLLM(request.role, request.body.messages || request.messages || []);
+        if (onDelta) onDelta(content, content);
+        return content.trim();
+      }
+
+      const url = request.url;
+      const key = request.key;
+      if (!url) throw new Error('缺少 API 地址。');
+
+      const body = deepClone(request.body);
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream, application/json, text/plain, */*'
+      };
+      if (key) headers.Authorization = `Bearer ${key}`;
+
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`);
+      }
+
+      if (!res.body) throw new Error('浏览器未拿到可读取的响应流。');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let full = '';
+      let raw = '';
+      let finishedByDone = false;
+
+      const emit = (delta) => {
+        if (!delta) return;
+        full += delta;
+        if (onDelta) onDelta(delta, full);
+      };
+
+      const handlePayload = (payload) => {
+        const text = String(payload || '').trim();
+        if (!text) return;
+        if (text === '[DONE]') {
+          finishedByDone = true;
+          return;
+        }
+        emit(extractStreamDelta(text));
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        raw += chunk;
+        if (raw.length > 50000) raw = raw.slice(-50000);
+        buffer += chunk;
+
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':') || trimmed.startsWith('event:')) continue;
+
+          if (trimmed.startsWith('data:')) {
+            handlePayload(trimmed.slice(5));
+          } else if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            handlePayload(trimmed);
+          }
+
+          if (finishedByDone) {
+            try { await reader.cancel(); } catch {}
+            break;
+          }
+        }
+        if (finishedByDone) break;
+      }
+
+      const rest = buffer.trim();
+      if (!finishedByDone && rest) {
+        if (rest.startsWith('data:')) {
+          handlePayload(rest.slice(5));
+        } else if (rest.startsWith('{')) {
+          const parsed = parseNonStreamContent(rest) || extractStreamDelta(rest);
+          emit(parsed);
+        }
+      }
+
+      if (!full.trim()) {
+        const fallback = parseNonStreamContent(raw);
+        if (fallback) {
+          if (onDelta) onDelta(fallback, fallback);
+          return fallback.trim();
+        }
+        throw new Error(`响应已结束，但没有解析到 content。尾部响应：${raw.slice(-500)}`);
+      }
+
+      return full.trim();
+    }
+
+    function parseNonStreamContent(text) {
+      let data;
+      try { data = JSON.parse(text); } catch { return ''; }
+      return data?.choices?.[0]?.message?.content
+        || data?.choices?.[0]?.text
+        || data?.output_text
+        || data?.content
+        || '';
+    }
+
+    function extractStreamDelta(payload) {
+      let data;
+      try { data = JSON.parse(payload); } catch { return ''; }
+      const choice = data?.choices?.[0];
+      return choice?.delta?.content
+        || choice?.message?.content
+        || choice?.text
+        || data?.delta
+        || data?.output_text
+        || data?.content
+        || '';
+    }
+
+    function systemBase(extra = '') {
+      return `你正在参与一个「AI 审议室 / 多 AI 共识引擎」。
+核心目标：在避免过度断言和伪权威的前提下，提炼原命题的合理内核，给出有限信息下的现实倾向判断，说明成立条件、风险边界、现实意义，并转化为普通用户可执行的建议。
+工作顺序：命题标准化 → 维度拆解 → 独立判断 → 交叉质询 → 合理内核提炼 → 现实语境解释 → 主持人综合底稿 → 行动转化 → 用户报告压缩 → 质量自检 → 最终展示。
+硬性规则：
+1. 禁止直接被用户原始表述锚定。
+2. 禁止把复杂问题压成无边界的单一结论。
+3. 禁止过早追求一致。
+4. 禁止输出没有算法和可复核依据的百分比、平均认可度、阈值、投票率。
+5. 禁止使用“签字确认”“全体通过”“多轮审议完成所以更正确”等仪式化权威表达。
+6. 禁止用“完全、一定、必然、不可能、所有、唯一、等于零”等绝对化表达，除非已给出清晰定义、范围、证据和反例检查。
+7. 必须区分事实、推测、价值判断，并标明证据强度：强 / 中 / 弱。
+8. 必须保留有效分歧，不得强行抹平。
+9. 禁止最终报告只停留在“命题太绝对”“信息不足”“无法判断”。只要不是事实数据完全缺失，就必须给出倾向性判断。
+10. 原命题即使过度绝对，也必须回答：它抓住了什么真实问题、哪部分大体成立、哪部分说过头、更稳表达是什么、普通人应如何行动。
+11. “暂不可收敛”只能作为极少数情况使用，不能成为社会判断、策略判断、价值判断的默认出口。
+12. 反例和边界不能淹没主判断。主结论必须先出现，边界后出现。
+13. 如果不能联网，不得编造研究、数据、案例；可以使用常识性机制分析、案例类型、公开常见现象、逻辑推演和用户提供的信息。
+${extra}`;
+    }
+
+    async function normalizeProposition(signal) {
+      setStatus('normalize', '运行中', 'running');
+      log('阶段 1：命题标准化开始。');
+      const prompt = `用户原始观点：
+${state.original}
+
+请执行【命题标准化】，只整理问题，不下最终结论。
+必须按以下格式输出：
+【原始命题】
+保留用户原话。
+
+【标准化命题】
+把用户原话改写成一个更清楚、可讨论、可检验的判断。
+
+【关键概念】
+列出原命题中需要定义的词。
+
+【判断对象】
+这个命题到底在讨论什么对象。
+
+【判断范围】
+这个命题适用于什么范围，不适用于什么范围。
+
+【评价标准】
+判断“对/错”“好/坏”“可行/不可行”“值得/不值得”所依据的标准。
+
+【不能直接下结论的部分】
+指出原命题中过宽、过绝对、概念混杂、条件不足的地方。
+
+禁止：输出最终结论、认可/反对用户、给出百分比、进入具体方案。`;
+      const retryId = 'normalize';
+      const bodyId = 'normalizeStream';
+      const request = makeLLMRequestSnapshot({
+        role: '命题标准化器',
+        model: getModelForRole(roleIndex('definition')),
+        messages: [
+          { role: 'system', content: systemBase('你只负责命题标准化，不负责结论判断。') },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '命题标准化',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => {
+          state.normalizedFull = content;
+          state.proposition = extractSection(content, '标准化命题') || content;
+          els.normalizeBody.innerHTML = resultBoxHTML('命题标准化', bodyId, retryId, content);
+        },
+        onError: (content) => {
+          state.normalizedFull = content;
+          els.normalizeBody.innerHTML = resultBoxHTML('命题标准化', bodyId, retryId, content);
+        }
+      });
+      els.normalizeBody.innerHTML = resultBoxHTML('命题标准化（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.normalizedFull = content;
+        state.proposition = extractSection(content, '标准化命题') || content;
+        els.normalizeBody.innerHTML = resultBoxHTML('命题标准化', bodyId, retryId, content);
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        state.normalizedFull = content;
+        updateTextElement(bodyId, content);
+        throw error;
+      }
+      setStatus('normalize', '已完成', 'done');
+      setProgress(12, '命题标准化完成。');
+      log('阶段 1：命题标准化完成。');
+    }
+
+    async function dimensionDecomposition(signal) {
+      setStatus('dimensions', '运行中', 'running');
+      log('阶段 2：通用维度拆解开始。');
+      const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+请执行【通用维度拆解】。这一阶段只负责拆解，不负责达成结论。
+必须检查并输出以下 10 个维度：
+1. 概念维度：关键词是否有多种含义？
+2. 对象维度：讨论对象是否包含不同类型？
+3. 范围维度：命题适用于全部情况，还是只适用于局部情况？
+4. 时间维度：短期、中期、长期是否结论不同？
+5. 条件维度：什么条件下成立？什么条件下不成立？
+6. 主体维度：不同主体、能力、资源、位置、目标下是否不同？
+7. 标准维度：换一种评价标准，结论是否改变？
+8. 证据维度：哪些是事实，哪些是推测，哪些是价值判断？
+9. 反例维度：是否存在足以削弱绝对判断的反例？
+10. 边界维度：这个判断的适用边界在哪里？
+
+输出格式：
+| 维度 | 需要区分的问题 | 对结论的影响 |
+|---|---|---|
+
+禁止在本阶段输出最终结论。`;
+      const retryId = 'dimensions';
+      const bodyId = 'dimensionsStream';
+      const role = ROLES.find(r => r.id === 'dimensions');
+      const request = makeLLMRequestSnapshot({
+        role: '维度拆解者',
+        model: getModelForRole(roleIndex('dimensions')),
+        messages: [
+          { role: 'system', content: systemBase(role.system) },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '通用维度拆解',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => {
+          state.dimensionAnalysis = content;
+          els.dimensionsBody.innerHTML = resultBoxHTML('通用维度拆解', bodyId, retryId, content);
+        },
+        onError: (content) => {
+          state.dimensionAnalysis = content;
+          els.dimensionsBody.innerHTML = resultBoxHTML('通用维度拆解', bodyId, retryId, content);
+        }
+      });
+      els.dimensionsBody.innerHTML = resultBoxHTML('通用维度拆解（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.dimensionAnalysis = content;
+        els.dimensionsBody.innerHTML = resultBoxHTML('通用维度拆解', bodyId, retryId, content);
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        state.dimensionAnalysis = content;
+        updateTextElement(bodyId, content);
+        throw error;
+      }
+      setStatus('dimensions', '已完成', 'done');
+      setProgress(24, '通用维度拆解完成。');
+      log('阶段 2：通用维度拆解完成。');
+    }
+
+    async function independentThinking(signal) {
+      setStatus('independent', '运行中', 'running');
+      log('阶段 3：各角色并发独立判断开始。');
+      const thinkingRoles = getDeliberationRoles();
+      thinkingRoles.forEach((role) => {
+        state.independent[role.id] = '';
+        const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+通用维度拆解：
+${state.dimensionAnalysis}
+
+你是：${role.name}
+职责：${role.duty}
+
+请在完全不参考其他 AI 的情况下独立判断。不要问“是否同意用户”。
+必须输出：
+1. 你认为已经相对稳定的判断
+2. 你认为只在特定条件下成立的判断
+3. 你认为证据不足但仍可形成保守倾向的判断
+4. 你发现的过度绝对化表达
+5. 原命题的合理内核
+6. 现实中的倾向性判断
+7. 对普通用户的行动启示
+8. 哪些内容可以作为主结论
+9. 哪些内容只能作为边界说明
+10. 你认为不应该被强行抹平的分歧
+11. 一个后续交叉质询必须追问的问题
+
+禁止：只拆漏洞不形成判断；把“不能绝对证明”直接等同于“无法判断”；把所有结论都推给“需要更多信息”；输出认可程度、置信度百分比、签字、全体通过、最终定论。`;
+        const retryId = `independent_${role.id}`;
+        const request = makeLLMRequestSnapshot({
+          role: role.name,
+          model: getModelForRole(roleIndex(role.id)),
+          messages: [
+            { role: 'system', content: systemBase(role.system) },
+            { role: 'user', content: prompt }
+          ]
+        });
+        registerRetryJob(retryId, {
+          label: `独立判断｜${role.name}`,
+          targetId: retryId,
+          request,
+          onSuccess: (content) => {
+            state.independent[role.id] = content;
+            renderIndependent();
+          },
+          onError: (content) => {
+            state.independent[role.id] = content;
+            renderIndependent();
+          }
+        });
+      });
+      renderIndependentSkeleton();
+      const tasks = thinkingRoles.map((role) => {
+        const retryId = `independent_${role.id}`;
+        return callLLM({
+          requestSnapshot: state.retryJobs[retryId].request,
+          signal,
+          onDelta: (delta) => { state.independent[role.id] += delta; updateTextElement(retryId, state.independent[role.id]); }
+        }).then(content => {
+          state.independent[role.id] = content;
+          updateTextElement(retryId, content);
+          return { role, content };
+        }).catch(error => {
+          const content = `调用失败：${error.message}`;
+          state.independent[role.id] = content;
+          updateTextElement(retryId, content);
+          return { role, content, error: true };
+        });
+      });
+      await Promise.all(tasks);
+      renderIndependent();
+      setStatus('independent', '已完成', 'done');
+      setProgress(44, '独立判断完成。');
+      log('阶段 3：独立判断完成。');
+    }
+
+    function renderIndependentSkeleton() {
+      const thinkingRoles = getDeliberationRoles();
+      els.independentBody.innerHTML = `<div class="role-grid">${thinkingRoles.map(role => {
+        const retryId = `independent_${role.id}`;
+        return `<div class="role-card">
+          <div class="role-card-head">
+            <div class="role-name"><span class="role-icon">${role.icon}</span>${role.name}</div>
+            <div class="head-actions"><span class="tag">独立流式中</span>${retryButtonHTML(retryId)}</div>
+          </div>
+          <div class="role-body" id="${retryId}">正在等待流式输出...</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    function renderIndependent() {
+      const thinkingRoles = getDeliberationRoles();
+      els.independentBody.innerHTML = `<div class="role-grid">${thinkingRoles.map(role => {
+        const retryId = `independent_${role.id}`;
+        return `<div class="role-card">
+          <div class="role-card-head">
+            <div class="role-name"><span class="role-icon">${role.icon}</span>${role.name}</div>
+            <div class="head-actions"><span class="tag">独立判断</span>${retryButtonHTML(retryId)}</div>
+          </div>
+          <div class="role-body" id="${retryId}">${safeText(state.independent[role.id] || '暂无输出')}</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    function buildInitialContext() {
+      return getDeliberationRoles().map(role => `【${role.name} 独立判断】\n${state.independent[role.id] || ''}`).join('\n\n');
+    }
+
+    function buildDiscussionContext() {
+      return state.discussion.map(m => `【第 ${m.round} 轮｜${m.role.name}】\n${m.content}`).join('\n\n');
+    }
+
+    async function discussionRounds(signal) {
+      setStatus('discuss', '运行中', 'running');
+      log('阶段 4：交叉质询开始。');
+      els.discussionBody.innerHTML = '<div class="discussion" id="discussionList"></div>';
+      const rounds = parsePositiveInt(els.rounds.value, 1);
+      const discussionRoles = getDeliberationRoles();
+
+      for (let r = 1; r <= rounds; r++) {
+        if (!state.running) throw new Error('已停止。');
+        log(`交叉质询第 ${r} 轮开始：本轮 ${discussionRoles.length} 个角色并发调用。`);
+
+        // 每一轮开始时冻结上下文：同一轮内角色并发，全部只读取上一轮结束时的共享材料。
+        // 这样不改变“轮次推进”的流程，只消除同一轮内角色 A 等角色 B 的串行等待。
+        const discussionContextAtRoundStart = buildDiscussionContext() || '暂无，这是第一轮。';
+        const initialContextAtRoundStart = buildInitialContext();
+
+        const tasks = discussionRoles.map((role) => {
+          const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+通用维度拆解：
+${state.dimensionAnalysis}
+
+各角色独立判断：
+${initialContextAtRoundStart}
+
+截至目前的交叉质询内容：
+${discussionContextAtRoundStart}
+
+现在轮到你：${role.name}
+职责：${role.duty}
+
+请严格按以下格式输出：
+1. 当前是否已有明确主判断：有/没有；如果没有，必须补一个有限信息下的倾向性判断。
+2. 当前是否已经提炼原命题的合理内核：有/没有；如果没有，必须补充。
+3. 当前是否解释了现实机制：有/没有；如果没有，必须补充可能机制和证据强度。
+4. 当前是否已有用户能执行的建议：有/没有；如果没有，必须补充。
+5. 本轮最需要修正或限定的判断：
+6. 该判断的问题属于哪类：概念不清 / 范围过宽 / 证据不足 / 反例存在 / 主体差异 / 时间尺度差异 / 评价标准差异 / 过度绝对化 / 不可知论漂移 / 术语过密 / 边界压过主结论 / 其他：
+7. 你补充的反例或边界条件：
+8. 更稳的现实表达：
+9. 普通人应采用的保守行动策略：
+10. 下一轮必须检查的问题：
+
+不可知论漂移定义：大量使用“无法判断、不可决断、取决于定义、需要更多信息、无法排除、不能证明”等表达，但没有给出有限信息下的现实倾向判断。
+如果发现不可知论漂移，必须强制补充：最可能成立的版本、最需要警惕的现实风险、普通人应采用的保守行动策略。
+
+禁止：认可程度、百分比、签字、全体通过、只说不能判断、让边界压过主结论。`;
+          const msg = { round: r, role, content: '', time: nowText(), bodyId: `discussion_${r}_${role.id}_${Date.now()}_${Math.random().toString(36).slice(2)}` };
+          msg.retryId = `retry_${msg.bodyId}`;
+          const request = makeLLMRequestSnapshot({
+            role: role.name,
+            model: getModelForRole(roleIndex(role.id)),
+            messages: [
+              { role: 'system', content: systemBase(role.system) },
+              { role: 'user', content: prompt }
+            ]
+          });
+          registerRetryJob(msg.retryId, {
+            label: `交叉质询第 ${r} 轮｜${role.name}`,
+            targetId: msg.bodyId,
+            request,
+            onSuccess: (content) => {
+              msg.content = content;
+              renderDiscussionAll();
+            },
+            onError: (content) => {
+              msg.content = content;
+              renderDiscussionAll();
+            }
+          });
+          state.discussion.push(msg);
+          appendMessage(msg);
+
+          return callLLM({
+            requestSnapshot: request,
+            signal,
+            onDelta: (delta) => { msg.content += delta; updateTextElement(msg.bodyId, msg.content); }
+          }).then(content => {
+            msg.content = content;
+            updateTextElement(msg.bodyId, content);
+            return { role, content };
+          }).catch(error => {
+            if (error?.name === 'AbortError') throw error;
+            const content = `调用失败：${error.message}`;
+            msg.content = content;
+            updateTextElement(msg.bodyId, content);
+            log(`交叉质询第 ${r} 轮｜${role.name} 调用失败：${error.message}`);
+            return { role, content, error: true };
+          });
+        });
+
+        await Promise.all(tasks);
+        const pct = 44 + Math.round((r / rounds) * 22);
+        setProgress(pct, `交叉质询第 ${r}/${rounds} 轮完成。`);
+        log(`交叉质询第 ${r} 轮完成。`);
+      }
+      setStatus('discuss', '已完成', 'done');
+      log('阶段 4：交叉质询完成。');
+    }
+
+    function appendMessage(msg) {
+      const list = $('discussionList');
+      if (!list) return;
+      if (!msg.bodyId) msg.bodyId = `discussion_${msg.round}_${msg.role.id}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      if (!msg.retryId) msg.retryId = `retry_${msg.bodyId}`;
+      const wrap = document.createElement('div');
+      wrap.className = 'message';
+      wrap.innerHTML = `
+        <div class="avatar">${msg.role.icon || 'AI'}</div>
+        <div class="bubble">
+          <div class="bubble-head"><b>${safeText(msg.role.name || '角色')}</b><div class="head-actions"><span>第 ${msg.round} 轮｜${safeText(msg.time)}</span>${retryButtonHTML(msg.retryId)}</div></div>
+          <div class="bubble-body" id="${msg.bodyId}">${safeText(msg.content || '正在等待流式输出...')}</div>
+        </div>`;
+      list.appendChild(wrap);
+    }
+
+    function renderDiscussionAll() {
+      els.discussionBody.innerHTML = '<div class="discussion" id="discussionList"></div>';
+      state.discussion.forEach(appendMessage);
+    }
+
+    async function kernelExtraction(signal) {
+      setStatus('kernel', '运行中', 'running');
+      log('阶段 5：合理内核提炼开始。');
+      const role = ROLES.find(r => r.id === 'kernel');
+      const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+通用维度拆解：
+${state.dimensionAnalysis}
+
+独立判断：
+${buildInitialContext()}
+
+交叉质询：
+${buildDiscussionContext()}
+
+请作为「合理内核提炼者」输出，不要继续只找漏洞。必须回答：
+1. 原命题最强版本是什么？
+2. 它抓住了什么现实问题？
+3. 哪些部分大体成立？
+4. 哪些部分说过头、必须降级？
+5. 降级后更准确的表达是什么？
+6. 这个判断对普通人有什么现实提醒？
+7. 哪些内容应该进入最终主结论，哪些只放进边界说明？
+
+禁止只写“原命题过于绝对”“证据不足”“无法判断”。`;
+      const retryId = 'kernel';
+      const bodyId = 'kernelStream';
+      const request = makeLLMRequestSnapshot({
+        role: role.name,
+        model: getModelForRole(roleIndex('kernel')),
+        messages: [
+          { role: 'system', content: systemBase(role.system) },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '合理内核提炼',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => { state.kernelAnalysis = content; els.kernelBody.innerHTML = resultBoxHTML('合理内核提炼', bodyId, retryId, content); },
+        onError: (content) => { state.kernelAnalysis = content; els.kernelBody.innerHTML = resultBoxHTML('合理内核提炼', bodyId, retryId, content); }
+      });
+      els.kernelBody.innerHTML = resultBoxHTML('合理内核提炼（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.kernelAnalysis = content;
+        els.kernelBody.innerHTML = resultBoxHTML('合理内核提炼', bodyId, retryId, content);
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        state.kernelAnalysis = content;
+        updateTextElement(bodyId, content);
+        throw error;
+      }
+      setStatus('kernel', '已完成', 'done');
+      setProgress(69, '合理内核提炼完成。');
+      log('阶段 5：合理内核提炼完成。');
+    }
+
+    async function realityContextExplanation(signal) {
+      setStatus('reality', '运行中', 'running');
+      log('阶段 6：现实语境解释开始。');
+      const role = ROLES.find(r => r.id === 'context');
+      const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+通用维度拆解：
+${state.dimensionAnalysis}
+
+合理内核提炼：
+${state.kernelAnalysis}
+
+交叉质询：
+${buildDiscussionContext()}
+
+请作为「现实语境解释者」输出。必须回答：
+1. 这个命题通常对应什么现实场景？
+2. 哪些社会机制、利益结构、人际关系、制度环境、市场结构或权力结构会影响判断？
+3. 如果命题涉及中国社会、中国教育、中国人情、中国权力结构、中国市场、中国家庭等，必须加入本土语境；不要只说缺少跨国比较证据。
+4. 可以给出案例类型或常见场景，但不能编造具体数据和假案例。
+5. 这个命题对普通人的现实意义是什么？
+6. 证据强度分别是强 / 中 / 弱？
+
+禁止只做形式逻辑分析。`;
+      const retryId = 'reality';
+      const bodyId = 'realityStream';
+      const request = makeLLMRequestSnapshot({
+        role: role.name,
+        model: getModelForRole(roleIndex('context')),
+        messages: [
+          { role: 'system', content: systemBase(role.system) },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '现实语境解释',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => { state.realityAnalysis = content; els.realityBody.innerHTML = resultBoxHTML('现实语境解释', bodyId, retryId, content); },
+        onError: (content) => { state.realityAnalysis = content; els.realityBody.innerHTML = resultBoxHTML('现实语境解释', bodyId, retryId, content); }
+      });
+      els.realityBody.innerHTML = resultBoxHTML('现实语境解释（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.realityAnalysis = content;
+        els.realityBody.innerHTML = resultBoxHTML('现实语境解释', bodyId, retryId, content);
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        state.realityAnalysis = content;
+        updateTextElement(bodyId, content);
+        throw error;
+      }
+      setStatus('reality', '已完成', 'done');
+      setProgress(72, '现实语境解释完成。');
+      log('阶段 6：现实语境解释完成。');
+    }
+
+    async function draftConsensus(signal) {
+      setStatus('draft', '运行中', 'running');
+      log('阶段 7：主持人生成综合底稿与用户决策结论。');
+      const host = ROLES.find(r => r.id === 'host');
+      const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+通用维度拆解：
+${state.dimensionAnalysis}
+
+独立判断：
+${buildInitialContext()}
+
+完整交叉质询：
+${buildDiscussionContext()}
+
+合理内核提炼：
+${state.kernelAnalysis}
+
+现实语境解释：
+${state.realityAnalysis}
+
+请作为综合主持人提出「主持人综合底稿」，不是最终展示版，也不是全体共识。
+你必须优先生成“可用判断”，而不是只生成“不可下结论的理由”。
+
+必须输出两层内容：
+
+## 第一层：审议底稿
+用于保留条件、分歧、证据缺口、边界。包含：
+1. 可相对稳定的判断
+2. 条件性判断
+3. 多分支判断
+4. 主要分歧
+5. 未验证前提
+6. 需要降级的过度表达
+7. 可能的结论状态候选：稳定结论 / 条件性结论 / 多分支结论 / 暂不可收敛
+8. 质量复核需要重点检查的问题
+
+## 第二层：用户决策结论
+用于告诉用户现实中怎么理解和行动。必须回答：
+1. 原命题最准确的改写是什么？
+2. 它的合理内核是什么？
+3. 它现实中大体对不对？
+4. 哪些情况下成立？
+5. 哪些情况下不成立？
+6. 普通人应该如何据此行动？
+7. 哪些边界必须提醒，但不能淹没主结论？
+
+要求：
+- 不强行制造一致。
+- 不使用百分比、阈值、投票率、签字确认。
+- 反例和边界放在主结论之后。
+- 不把内容改成创业沙盘、压力测试、世界模拟或纯辩论总结。
+- 禁止只写“无法判断”“信息不足”“原命题太绝对”。`;
+      const retryId = 'draft';
+      const bodyId = 'draftStream';
+      const request = makeLLMRequestSnapshot({
+        role: host.name,
+        model: getModelForRole(roleIndex('host')),
+        messages: [
+          { role: 'system', content: systemBase(host.system) },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '主持人综合底稿',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => {
+          state.draft = content;
+          els.draftBody.innerHTML = resultBoxHTML('主持人综合底稿', bodyId, retryId, content);
+        },
+        onError: (content) => {
+          state.draft = content;
+          els.draftBody.innerHTML = resultBoxHTML('主持人综合底稿', bodyId, retryId, content);
+        }
+      });
+      els.draftBody.innerHTML = resultBoxHTML('主持人综合底稿（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.draft = content;
+        els.draftBody.innerHTML = resultBoxHTML('主持人综合底稿', bodyId, retryId, content);
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        state.draft = content;
+        updateTextElement(bodyId, content);
+        throw error;
+      }
+      setStatus('draft', '已完成', 'done');
+      setProgress(78, '主持人综合底稿完成，进入行动转化。');
+      log('阶段 7：主持人综合底稿完成。');
+    }
+
+    async function actionTransformation(signal) {
+      setStatus('action', '运行中', 'running');
+      log('阶段 8：行动转化开始。');
+      const role = ROLES.find(r => r.id === 'action');
+      const prompt = `用户原始观点：
+${state.original}
+
+主持人综合底稿：
+${state.draft}
+
+合理内核提炼：
+${state.kernelAnalysis}
+
+现实语境解释：
+${state.realityAnalysis}
+
+请作为「行动转化者」输出用户能执行的现实建议。必须输出：
+1. 当前最稳的判断原则；
+2. 用户现实中应该怎么做；
+3. 应避免什么误区；
+4. 3-7 天内可以做什么验证；
+5. 长期策略是什么；
+6. 如果判断错了，如何以最低代价修正。
+
+禁止只说“需要更多信息”“继续观察”。行动建议必须服务现实行动，而不是只服务验证命题。`;
+      const retryId = 'action';
+      const bodyId = 'actionStream';
+      const request = makeLLMRequestSnapshot({
+        role: role.name,
+        model: getModelForRole(roleIndex('action')),
+        messages: [
+          { role: 'system', content: systemBase(role.system) },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '行动转化',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => { state.actionPlan = content; els.actionBody.innerHTML = resultBoxHTML('行动转化', bodyId, retryId, content); },
+        onError: (content) => { state.actionPlan = content; els.actionBody.innerHTML = resultBoxHTML('行动转化', bodyId, retryId, content); }
+      });
+      els.actionBody.innerHTML = resultBoxHTML('行动转化（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.actionPlan = content;
+        els.actionBody.innerHTML = resultBoxHTML('行动转化', bodyId, retryId, content);
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        state.actionPlan = content;
+        updateTextElement(bodyId, content);
+        throw error;
+      }
+      setStatus('action', '已完成', 'done');
+      setProgress(82, '行动转化完成，进入质量复核。');
+      log('阶段 8：行动转化完成。');
+    }
+
+    async function qualityReview(signal) {
+      setStatus('review', '运行中', 'running');
+      log('阶段 9：质量复核开始。');
+      const reviewRoles = getQualityReviewRoles();
+      reviewRoles.forEach((role) => {
+        const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+通用维度拆解：
+${state.dimensionAnalysis}
+
+合理内核提炼：
+${state.kernelAnalysis}
+
+现实语境解释：
+${state.realityAnalysis}
+
+主持人综合底稿：
+${state.draft}
+
+行动转化：
+${state.actionPlan}
+
+你是：${role.name}
+
+请进行质量复核。不要回答“是否同意最终结论”。必须输出 JSON，不要输出其他文字：
+{
+  "稳定判断": ["哪些判断你认为已经稳定"],
+  "条件性判断": ["哪些判断只在特定条件下成立"],
+  "合理内核是否充分": ["合理内核是否已被提炼，缺什么"],
+  "现实机制是否充分": ["现实机制、本土语境、社会结构是否解释充分"],
+  "行动建议是否充分": ["行动建议是否能执行，是否包含3-7天验证和长期策略"],
+  "证据不足": ["哪些判断证据不足但仍需给出保守倾向"],
+  "过度绝对化": ["哪些判断过度绝对化"],
+  "不可知论漂移": ["是否大量说无法判断/信息不足而没有倾向性判断"],
+  "术语过密或审稿化": ["是否像论文审稿意见，是否需要降密"],
+  "遗漏维度": ["哪些维度仍然缺失"],
+  "不可抹平分歧": ["哪些分歧不应该被强行抹平"],
+  "伪权威表达": ["是否存在无依据数字、虚假精确、仪式化权威表达"],
+  "结论状态建议": "稳定结论/条件性结论/多分支结论/暂不可收敛",
+  "是否必须继续审议": false,
+  "必须修改": "没有则写无"
+}
+
+判断规则：
+- 如发现无依据百分比、平均认可度、阈值、投票率、签字、全体通过，必须写入“伪权威表达”。
+- 如发现“完全/一定/必然/不可能/没有任何/所有/全部/唯一/绝对/永远/必定/根本没有/毫无/彻底/等于零”等表达缺少范围、证据、反例检查，必须写入“过度绝对化”。
+- 如最终材料只强调“命题太绝对、信息不足、无法判断”，没有给出有限信息下的现实倾向判断，必须写入“不可知论漂移”。
+- 如行动建议只是“继续验证命题”，没有指导现实行动，必须写入“行动建议是否充分”。
+- “暂不可收敛”只能在事实数据完全缺失且无法形成保守行动原则时使用。`;
+        const retryId = `review_${role.id}`;
+        const request = makeLLMRequestSnapshot({
+          role: role.name,
+          model: getModelForRole(roleIndex(role.id)),
+          messages: [
+            { role: 'system', content: systemBase(role.system) },
+            { role: 'user', content: prompt }
+          ]
+        });
+        registerRetryJob(retryId, {
+          label: `质量复核｜${role.name}`,
+          targetId: retryId,
+          request,
+          onSuccess: (content) => {
+            const normalized = normalizeReview({ role, raw: content, parsed: parseJSONLoose(content) });
+            state.reviews = state.reviews.filter(r => r.role.id !== role.id).concat(normalized);
+            state.reviews.sort((a, b) => roleIndex(a.role.id) - roleIndex(b.role.id));
+            renderReviews();
+          },
+          onError: (content) => {
+            const normalized = normalizeReview({ role, raw: content, parsed: null, error: true });
+            state.reviews = state.reviews.filter(r => r.role.id !== role.id).concat(normalized);
+            state.reviews.sort((a, b) => roleIndex(a.role.id) - roleIndex(b.role.id));
+            renderReviews();
+          }
+        });
+      });
+
+      els.reviewBody.innerHTML = `<div class="role-grid">${reviewRoles.map(role => {
+        const retryId = `review_${role.id}`;
+        return `<div class="role-card">
+          <div class="role-card-head">
+            <div class="role-name"><span class="role-icon">${role.icon}</span>${role.name}</div>
+            <div class="head-actions"><span class="tag">质量复核流式中</span>${retryButtonHTML(retryId)}</div>
+          </div>
+          <div class="role-body" id="${retryId}">正在等待流式输出...</div>
+        </div>`;
+      }).join('')}</div>`;
+
+      const tasks = reviewRoles.map((role) => {
+        const retryId = `review_${role.id}`;
+        let live = '';
+        return callLLM({
+          requestSnapshot: state.retryJobs[retryId].request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(retryId, live); }
+        }).then(content => ({ role, raw: content, parsed: parseJSONLoose(content) }))
+          .catch(error => ({ role, raw: `调用失败：${error.message}`, parsed: null, error: true }));
+      });
+      const reviews = await Promise.all(tasks);
+      state.reviews = reviews.map(normalizeReview);
+      renderReviews();
+      setStatus('review', '已完成', 'done');
+      setProgress(88, '质量复核完成。');
+      log('阶段 9：质量复核完成。');
+    }
+
+    function asList(value) {
+      if (Array.isArray(value)) return value.map(x => String(x)).filter(Boolean);
+      if (value == null) return [];
+      return String(value).split(/\n|；|;/).map(x => x.trim()).filter(Boolean);
+    }
+
+    function normalizeReview(item) {
+      const p = item.parsed || {};
+      const stateSuggestion = String(p['结论状态建议'] ?? p.stateSuggestion ?? '条件性结论');
+      return {
+        role: item.role,
+        stable: asList(p['稳定判断'] ?? p.stable),
+        conditional: asList(p['条件性判断'] ?? p.conditional),
+        kernelAdequacy: asList(p['合理内核是否充分'] ?? p.kernelAdequacy),
+        realityAdequacy: asList(p['现实机制是否充分'] ?? p.realityAdequacy),
+        actionAdequacy: asList(p['行动建议是否充分'] ?? p.actionAdequacy),
+        insufficient: asList(p['证据不足'] ?? p.insufficient),
+        overAbsolute: asList(p['过度绝对化'] ?? p.overAbsolute),
+        unknowabilityDrift: asList(p['不可知论漂移'] ?? p.unknowabilityDrift),
+        termOverload: asList(p['术语过密或审稿化'] ?? p.termOverload),
+        missing: asList(p['遗漏维度'] ?? p.missing),
+        disagreements: asList(p['不可抹平分歧'] ?? p.disagreements),
+        pseudoAuthority: asList(p['伪权威表达'] ?? p.pseudoAuthority),
+        stateSuggestion: CONCLUSION_STATES.includes(stateSuggestion) ? stateSuggestion : '条件性结论',
+        mustContinue: Boolean(p['是否必须继续审议'] ?? p.mustContinue ?? false),
+        requiredRevision: String(p['必须修改'] ?? p.requiredRevision ?? '无'),
+        raw: item.raw,
+        error: Boolean(item.error) || String(item.raw || '').startsWith('调用失败')
+      };
+    }
+
+    function renderReviews() {
+      els.reviewBody.innerHTML = `<div class="role-grid">${state.reviews.map(rv => {
+        const retryId = `review_${rv.role.id}`;
+        return `<div class="role-card">
+          <div class="role-card-head">
+            <div class="role-name"><span class="role-icon">${rv.role.icon}</span>${rv.role.name}</div>
+            <div class="head-actions"><span class="tag">${safeText(rv.error ? '调用失败' : rv.stateSuggestion)}</span>${retryButtonHTML(retryId)}</div>
+          </div>
+          <div class="role-body" id="${retryId}">
+${rv.error ? `原始输出：${safeText(rv.raw || '调用失败')}
+
+` : ''}稳定判断：${safeText(rv.stable.join('；') || '无')}
+条件性判断：${safeText(rv.conditional.join('；') || '无')}
+合理内核：${safeText(rv.kernelAdequacy?.join('；') || '无')}
+现实机制：${safeText(rv.realityAdequacy?.join('；') || '无')}
+行动建议：${safeText(rv.actionAdequacy?.join('；') || '无')}
+证据不足：${safeText(rv.insufficient.join('；') || '无')}
+过度绝对化：${safeText(rv.overAbsolute.join('；') || '无')}
+不可知论漂移：${safeText(rv.unknowabilityDrift?.join('；') || '无')}
+术语过密或审稿化：${safeText(rv.termOverload?.join('；') || '无')}
+遗漏维度：${safeText(rv.missing.join('；') || '无')}
+不可抹平分歧：${safeText(rv.disagreements.join('；') || '无')}
+伪权威表达：${safeText(rv.pseudoAuthority.join('；') || '无')}
+是否必须继续审议：${rv.mustContinue ? '是' : '否'}
+必须修改：${safeText(rv.requiredRevision)}
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    function deterministicOverstatementScan() {
+      const text = [state.original, state.normalizedFull, state.dimensionAnalysis, state.kernelAnalysis, state.realityAnalysis, state.draft, state.actionPlan, state.readableReport?.content || ''].join('\n');
+      return ABSOLUTE_TERMS.filter(term => text.includes(term));
+    }
+
+    async function finalSynthesis(signal) {
+      log('阶段 10A：生成完整审议底稿。');
+      const host = ROLES.find(r => r.id === 'host');
+      const absoluteTermsFound = deterministicOverstatementScan();
+      const mustContinue = state.reviews.some(r => r.mustContinue);
+      const prompt = `用户原始观点：
+${state.original}
+
+命题标准化结果：
+${state.normalizedFull}
+
+通用维度拆解：
+${state.dimensionAnalysis}
+
+独立判断：
+${buildInitialContext()}
+
+交叉质询：
+${buildDiscussionContext()}
+
+合理内核提炼：
+${state.kernelAnalysis}
+
+现实语境解释：
+${state.realityAnalysis}
+
+主持人综合底稿：
+${state.draft}
+
+行动转化：
+${state.actionPlan}
+
+质量复核：
+${state.reviews.map(r => `【${r.role.name}】\n稳定判断：${r.stable.join('；') || '无'}\n条件性判断：${r.conditional.join('；') || '无'}\n合理内核：${r.kernelAdequacy?.join('；') || '无'}\n现实机制：${r.realityAdequacy?.join('；') || '无'}\n行动建议：${r.actionAdequacy?.join('；') || '无'}\n证据不足：${r.insufficient.join('；') || '无'}\n过度绝对化：${r.overAbsolute.join('；') || '无'}\n不可知论漂移：${r.unknowabilityDrift?.join('；') || '无'}\n术语过密或审稿化：${r.termOverload?.join('；') || '无'}\n遗漏维度：${r.missing.join('；') || '无'}\n不可抹平分歧：${r.disagreements.join('；') || '无'}\n伪权威表达：${r.pseudoAuthority.join('；') || '无'}\n结论状态建议：${r.stateSuggestion}\n是否必须继续审议：${r.mustContinue ? '是' : '否'}\n必须修改：${r.requiredRevision}`).join('\n\n')}
+
+程序扫描到的绝对化词：${absoluteTermsFound.join('、') || '无'}
+是否存在角色认为必须继续审议：${mustContinue ? '是' : '否'}
+
+请输出一份「完整审议底稿」，用于折叠保存，不是默认展示给用户的报告。
+
+必须满足：
+1. 保留标准化问题、关键概念、维度拆解、稳定判断、条件判断、分歧、未验证前提和证据强度。
+2. 必须前置原命题合理内核和现实机制，不能只写不能判断。
+3. 必须说明主判断、边界、反例和行动建议之间的关系。
+4. 必须删除无依据百分比、投票率、签字确认等伪权威表达。
+5. 必须区分事实、推测、价值判断。
+6. “暂不可收敛”只能在事实数据完全缺失且无法形成保守行动原则时使用。
+
+建议结构：
+# 完整审议底稿
+
+## 1. 标准化后的问题
+## 2. 合理内核
+## 3. 现实机制与语境
+## 4. 维度拆解
+## 5. 已相对稳定的判断
+## 6. 条件性判断
+## 7. 主要分歧
+## 8. 过度表达降级
+## 9. 未验证前提与证据强度
+## 10. 行动转化依据
+## 11. 结论状态与边界
+
+禁止：输出百分比、平均认可度、阈值、签字、全体通过、多轮审议完成所以正确、绝对真理。`;
+
+      const retryId = 'final';
+      const bodyId = 'finalStream';
+      const request = makeLLMRequestSnapshot({
+        role: '完整审议底稿整理器',
+        model: getModelForRole(roleIndex('host')),
+        messages: [
+          { role: 'system', content: systemBase(host.system + '\n你负责输出完整审议底稿。默认展示给用户的是后续用户决策报告，本底稿主要用于折叠查看。') },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '完整审议底稿',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => {
+          state.final = { content, conclusionState: inferConclusionState(content), createdAt: nowText() };
+          state.readableReport = null;
+          renderFinal();
+          replaceCurrentHistory();
+        },
+        onError: (content) => {
+          state.final = { content, conclusionState: '条件性结论', createdAt: nowText() };
+          state.readableReport = null;
+          renderFinal();
+        }
+      });
+      els.resultBody.innerHTML = resultBoxHTML('完整审议底稿（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.final = { content, conclusionState: inferConclusionState(content), createdAt: nowText() };
+        state.readableReport = null;
+        renderFinal();
+        saveCurrentToHistory();
+      } catch (error) {
+        const content = `调用失败：${error.message}`;
+        state.final = { content, conclusionState: '条件性结论', createdAt: nowText() };
+        state.readableReport = null;
+        updateTextElement(bodyId, content);
+        throw error;
+      }
+      setProgress(92, '完整审议底稿已输出，开始压缩用户决策报告。');
+      log('阶段 10A：完整审议底稿完成。');
+    }
+
+
+    async function readableReportSynthesis(signal) {
+      if (!state.final?.content) return;
+      setStatus('report', '运行中', 'running');
+      log('阶段 10B：生成用户决策报告。');
+      const editor = ROLES.find(r => r.id === 'editor');
+      const prompt = `用户原始观点：
+${state.original}
+
+完整审议底稿：
+${state.final.content}
+
+合理内核提炼：
+${state.kernelAnalysis}
+
+现实语境解释：
+${state.realityAnalysis}
+
+行动转化：
+${state.actionPlan}
+
+质量复核：
+${state.reviews.map(r => `【${r.role.name}】\n合理内核：${r.kernelAdequacy?.join('；') || '无'}\n现实机制：${r.realityAdequacy?.join('；') || '无'}\n行动建议：${r.actionAdequacy?.join('；') || '无'}\n不可知论漂移：${r.unknowabilityDrift?.join('；') || '无'}\n术语过密或审稿化：${r.termOverload?.join('；') || '无'}\n必须修改：${r.requiredRevision}`).join('\n\n')}
+
+你要把审议底稿改写成适合普通用户阅读的最终报告。你不能编造事实，但必须完成决策压缩。
+
+要求：
+1. 第一段必须直接给结论；
+2. 第二段必须给“更准确的说法”；
+3. 必须前置合理内核；
+4. 必须减少术语；
+5. 必须把“无法严格证明”转成“现实中应如何谨慎判断”；
+6. 必须输出行动建议；
+7. 必须保留边界，但边界不能压过主判断；
+8. 禁止把最终报告写成论文审稿意见；
+9. 禁止大量使用“反事实、净因果效应、中介效应、同义反复、不可决断”等专业术语。确需使用时，必须转译成普通语言。
+
+必须按以下模板输出：
+# 审议结果报告
+
+## 1. 直接结论
+用 1-3 句话直接回答原命题。必须给出明确倾向：大体成立 / 部分成立 / 只在特定条件下成立 / 大体不成立 / 当前事实不足但现实上应采取某种保守判断。禁止只写“原命题过于绝对”。
+
+## 2. 更准确的说法
+格式：“原命题如果改成……，就更接近现实。”
+
+## 3. 命题的合理内核
+说明它抓住了什么真实问题。必须正面回答，不得只批判原命题。
+
+## 4. 它说过头的地方
+列出原命题中过满、过绝对、证据不足的部分，并降级表达。
+
+## 5. 现实机制
+解释为什么现实中会这样。如果涉及中国社会、中国教育、中国人情、中国权力结构、中国市场、中国家庭等，必须加入本土语境。
+
+## 6. 哪些人 / 哪些情况最符合这个判断
+列出高风险类型、低风险类型、例外类型。用普通语言，不要只用抽象概念。
+
+## 7. 反例与边界
+保留必要反例，但必须短于“合理内核 + 现实机制”部分。反例用于校准，不用于淹没主判断。
+
+## 8. 用户应该怎么做
+必须输出：现在应采用的判断原则；现实中该怎么做；应避免什么；3-7 天内可验证什么；长期策略。
+
+## 9. 一句话带走
+用一句普通人能记住的话压缩全文。`;
+
+      const retryId = 'readable_report';
+      const bodyId = 'readableReportStream';
+      const request = makeLLMRequestSnapshot({
+        role: '用户报告编辑者',
+        model: getModelForRole(roleIndex('editor')),
+        messages: [
+          { role: 'system', content: systemBase(editor.system + '\n你负责生成默认展示给用户的决策报告。你不能编造事实，但必须完成决策压缩。') },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '用户决策报告',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => {
+          state.readableReport = { content, createdAt: nowText() };
+          renderFinal();
+          if (els.reportBody) els.reportBody.innerHTML = resultBoxHTML('用户决策报告', bodyId, retryId, content);
+          replaceCurrentHistory();
+        },
+        onError: (content) => {
+          state.readableReport = { content, createdAt: nowText(), error: true };
+          renderFinal();
+          if (els.reportBody) els.reportBody.innerHTML = resultBoxHTML('用户决策报告生成失败', bodyId, retryId, content);
+          replaceCurrentHistory();
+        }
+      });
+
+      state.readableReport = { content: '正在等待流式输出...', createdAt: nowText() };
+      renderFinal();
+      if (els.reportBody) els.reportBody.innerHTML = resultBoxHTML('用户决策报告（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.readableReport = { content, createdAt: nowText() };
+        renderFinal();
+        if (els.reportBody) els.reportBody.innerHTML = resultBoxHTML('用户决策报告', bodyId, retryId, content);
+        replaceCurrentHistory();
+        setStatus('report', '已完成', 'done');
+        setProgress(96, '用户决策报告已输出，进入最终质量自检。');
+        log('阶段 10B：用户决策报告完成。');
+      } catch (error) {
+        if (error?.name === 'AbortError' || String(error?.message || '').includes('aborted') || String(error?.message || '').includes('已停止')) {
+          throw error;
+        }
+        const content = `调用失败：${error.message}`;
+        state.readableReport = { content, createdAt: nowText(), error: true };
+        renderFinal();
+        if (els.reportBody) els.reportBody.innerHTML = resultBoxHTML('用户决策报告生成失败', bodyId, retryId, content);
+        replaceCurrentHistory();
+        setStatus('report', '出错', 'error');
+        setProgress(96, '完整审议底稿已输出；用户决策报告生成失败，可点击重试。');
+        log(`阶段 10B：用户决策报告失败｜${error.message}`);
+      }
+    }
+
+    async function finalQualitySelfCheck(signal) {
+      if (!state.readableReport?.content || state.readableReport.error) return;
+      setStatus('selfcheck', '运行中', 'running');
+      log('阶段 11：最终质量自检开始。');
+      const editor = ROLES.find(r => r.id === 'editor');
+      const prompt = `用户原始观点：
+${state.original}
+
+当前最终用户决策报告：
+${state.readableReport.content}
+
+完整审议底稿：
+${state.final?.content || ''}
+
+请检查最终报告是否存在“不可知论漂移”或“审稿化倾向”。
+
+若存在任一问题，请直接重写为用户决策报告；若不存在，也请输出原报告的改进版，不要只说通过。
+
+自检问题：
+1. 一句话结论没有明确倾向；
+2. 第一屏主要在讲“不能下结论”；
+3. 没有“合理内核”；
+4. 没有“更准确的说法”；
+5. 没有“现实机制”；
+6. 没有“用户应该怎么做”；
+7. 术语密度过高；
+8. 行动建议只是在“继续验证命题”，不是指导现实行动；
+9. 边界和反例篇幅超过主判断；
+10. 最终报告读起来像学术审稿意见；
+11. 把所有问题都推给“信息不足”；
+12. 没有本土语境，却讨论了明显依赖本土语境的问题。
+
+重写原则：
+- 结论前置；
+- 合理内核前置；
+- 现实机制前置；
+- 行动建议前置；
+- 边界后置；
+- 术语降密；
+- 不牺牲严谨性，但必须提升可用性。
+
+输出必须仍然使用模板：
+# 审议结果报告
+## 1. 直接结论
+## 2. 更准确的说法
+## 3. 命题的合理内核
+## 4. 它说过头的地方
+## 5. 现实机制
+## 6. 哪些人 / 哪些情况最符合这个判断
+## 7. 反例与边界
+## 8. 用户应该怎么做
+## 9. 一句话带走`;
+      const retryId = 'selfcheck';
+      const bodyId = 'selfCheckStream';
+      const request = makeLLMRequestSnapshot({
+        role: '最终质量自检器',
+        model: getModelForRole(roleIndex('editor')),
+        messages: [
+          { role: 'system', content: systemBase(editor.system + '\n你负责最终报告质量自检。若发现不可知论漂移或审稿化倾向，直接重写报告。') },
+          { role: 'user', content: prompt }
+        ]
+      });
+      registerRetryJob(retryId, {
+        label: '最终质量自检',
+        targetId: bodyId,
+        request,
+        onSuccess: (content) => {
+          state.selfCheck = content;
+          state.readableReport = { content, createdAt: nowText(), selfChecked: true };
+          renderFinal();
+          if (els.selfCheckBody) els.selfCheckBody.innerHTML = resultBoxHTML('最终质量自检后报告', bodyId, retryId, content);
+          replaceCurrentHistory();
+        },
+        onError: (content) => {
+          state.selfCheck = content;
+          if (els.selfCheckBody) els.selfCheckBody.innerHTML = resultBoxHTML('最终质量自检失败', bodyId, retryId, content);
+          replaceCurrentHistory();
+        }
+      });
+      if (els.selfCheckBody) els.selfCheckBody.innerHTML = resultBoxHTML('最终质量自检（流式生成中）', bodyId, retryId);
+      let live = '';
+      try {
+        const content = await callLLM({
+          requestSnapshot: request,
+          signal,
+          onDelta: (delta) => { live += delta; updateTextElement(bodyId, live); }
+        });
+        state.selfCheck = content;
+        state.readableReport = { content, createdAt: nowText(), selfChecked: true };
+        renderFinal();
+        if (els.selfCheckBody) els.selfCheckBody.innerHTML = resultBoxHTML('最终质量自检后报告', bodyId, retryId, content);
+        replaceCurrentHistory();
+        setStatus('selfcheck', '已完成', 'done');
+        setProgress(100, '最终用户决策报告已完成并通过自检。');
+        log('阶段 11：最终质量自检完成。');
+      } catch (error) {
+        if (error?.name === 'AbortError' || String(error?.message || '').includes('aborted') || String(error?.message || '').includes('已停止')) {
+          throw error;
+        }
+        const content = `调用失败：${error.message}`;
+        state.selfCheck = content;
+        if (els.selfCheckBody) els.selfCheckBody.innerHTML = resultBoxHTML('最终质量自检失败', bodyId, retryId, content);
+        setStatus('selfcheck', '出错', 'error');
+        setProgress(100, '用户决策报告已输出；最终自检失败，可点击重试。');
+        log(`阶段 11：最终质量自检失败｜${error.message}`);
+      }
+    }
+
+    function inferConclusionState(text) {
+      const found = CONCLUSION_STATES.find(s => String(text || '').includes(`结论状态：${s}`) || String(text || '').includes(s));
+      return found || '条件性结论';
+    }
+
+    function renderFinal() {
+      if (!state.final && !state.readableReport) return;
+      const retryId = 'final';
+      const bodyId = 'finalStream';
+      const readableRetryId = 'readable_report';
+      const readableBodyId = 'readableReportStream';
+      const selfCheckRetryId = 'selfcheck';
+      const reviewSummary = state.reviews.map(rv => `
+        <div class="review-card">
+          <b>${safeText(rv.role.name)}</b>
+          <div class="review-note">建议状态：${safeText(rv.stateSuggestion)}</div>
+          <div class="review-note">不可知论：${safeText(rv.unknowabilityDrift?.join('；') || '无')}</div>
+          <div class="review-note">需继续：${rv.mustContinue ? '是' : '否'}</div>
+        </div>`).join('');
+
+      const userReportHTML = state.readableReport ? `
+        <div class="result-box">
+          <div class="output-title-row">
+            <h3>${state.readableReport.error ? '用户决策报告生成失败' : (state.readableReport.selfChecked ? '用户决策报告（已自检）' : '用户决策报告')}</h3>
+            <div class="head-actions">${retryButtonHTML(state.readableReport.selfChecked ? selfCheckRetryId : readableRetryId)}</div>
+          </div>
+          <p id="${readableBodyId}">${safeText(state.readableReport.content)}</p>
+          <div class="small-note">默认展示的是用户决策报告：结论前置、合理内核前置、现实机制前置、行动建议前置，边界后置。</div>
+        </div>` : '';
+
+      const draftHTML = state.final ? `
+        <details style="margin-top:14px;" ${state.readableReport ? '' : 'open'}>
+          <summary>展开完整审议底稿 / 证据层</summary>
+          <div class="details-content">
+            <div class="output-title-row">
+              <h3>结论状态：${safeText(state.final.conclusionState)}</h3>
+              <div class="head-actions">${retryButtonHTML(retryId)}</div>
+            </div>
+            <div id="${bodyId}">${safeText(state.final.content)}</div>
+          </div>
+        </details>` : '';
+
+      const processHTML = `
+        <details style="margin-top:14px;">
+          <summary>展开完整审议过程</summary>
+          <div class="details-content">${safeText(fullTranscript())}</div>
+        </details>`;
+
+      els.resultBody.innerHTML = `
+        ${userReportHTML || resultBoxHTML('完整审议底稿（用户报告生成前）', bodyId, retryId, state.final?.content || '等待输出')}
+        ${state.readableReport ? `<div class="review-row">${reviewSummary}</div><div class="small-note">本版本不输出认可百分比、平均分、签字确认或全体通过；这里只显示质量复核状态摘要。</div>` : ''}
+        ${draftHTML}
+        ${processHTML}`;
+    }
+
+    function fullTranscript() {
+      return [
+        `【用户原始观点】\n${state.original}`,
+        `【命题标准化】\n${state.normalizedFull}`,
+        `【通用维度拆解】\n${state.dimensionAnalysis}`,
+        `【独立判断】\n${buildInitialContext()}`,
+        `【交叉质询】\n${buildDiscussionContext()}`,
+        `【合理内核提炼】\n${state.kernelAnalysis}`,
+        `【现实语境解释】\n${state.realityAnalysis}`,
+        `【主持人综合底稿】\n${state.draft}`,
+        `【行动转化】\n${state.actionPlan}`,
+        `【质量复核】\n${state.reviews.map(r => `${r.role.name}：建议状态=${r.stateSuggestion}；合理内核=${r.kernelAdequacy?.join('；') || '无'}；现实机制=${r.realityAdequacy?.join('；') || '无'}；行动建议=${r.actionAdequacy?.join('；') || '无'}；不可知论漂移=${r.unknowabilityDrift?.join('；') || '无'}；必须修改=${r.requiredRevision}`).join('\n')}`,
+        `【完整审议底稿】\n${state.final?.content || ''}`,
+        `【用户决策报告】\n${state.readableReport?.content || ''}`,
+        `【最终质量自检】\n${state.selfCheck || ''}`
+      ].join('\n\n---\n\n');
+    }
+
+    async function runConsensus(demo = false) {
+      const input = els.userView.value.trim();
+      if (!input) {
+        alert('请先输入一个观点、看法、判断或立场。');
+        return;
+      }
+      resetRunVisual();
+      setView('process');
+      state.original = input;
+      state.demo = demo;
+      state.aborter = new AbortController();
+      setRunning(true);
+      setRunStatus(demo ? '演示模式运行中' : '运行中', 'running');
+      try {
+        await normalizeProposition(state.aborter.signal);
+        await dimensionDecomposition(state.aborter.signal);
+        await independentThinking(state.aborter.signal);
+        await discussionRounds(state.aborter.signal);
+        await kernelExtraction(state.aborter.signal);
+        await realityContextExplanation(state.aborter.signal);
+        await draftConsensus(state.aborter.signal);
+        await actionTransformation(state.aborter.signal);
+        await qualityReview(state.aborter.signal);
+        await finalSynthesis(state.aborter.signal);
+        await readableReportSynthesis(state.aborter.signal);
+        await finalQualitySelfCheck(state.aborter.signal);
+        setStatus('review', '已完成', 'done');
+        setRunStatus('已完成', 'done');
+        setView('result');
+      } catch (error) {
+        log(`错误：${error.message}`);
+        setRunStatus('出错 / 已停止', 'error');
+        setProgress(0, error.message);
+      } finally {
+        setRunning(false);
+      }
+    }
+
+    function stopRun() {
+      if (state.aborter) state.aborter.abort();
+      state.running = false;
+      setRunning(false);
+      setRunStatus('已停止', 'error');
+      log('用户停止运行。');
+    }
+
+    function extractSection(text, title) {
+      const reg = new RegExp(`【${title}】([\\s\\S]*?)(?=【|$)`);
+      const m = String(text).match(reg);
+      return m ? m[1].trim() : '';
+    }
+
+    function parseJSONLoose(text) {
+      const raw = String(text || '').trim();
+      try { return JSON.parse(raw); } catch {}
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) {
+        try { return JSON.parse(match[0]); } catch {}
+      }
+      return null;
+    }
+
+    function currentHistoryItem() {
+      return {
+        id: state.runId || Date.now().toString(36),
+        createdAt: nowText(),
+        original: state.original,
+        proposition: state.proposition,
+        normalizedFull: state.normalizedFull,
+        dimensionAnalysis: state.dimensionAnalysis,
+        kernelAnalysis: state.kernelAnalysis,
+        realityAnalysis: state.realityAnalysis,
+        actionPlan: state.actionPlan,
+        selfCheck: state.selfCheck,
+        final: state.final,
+        readableReport: state.readableReport,
+        independent: state.independent,
+        discussion: state.discussion.map(m => ({ round: m.round, role: m.role.id, content: m.content, time: m.time })),
+        draft: state.draft,
+        reviews: state.reviews.map(r => ({ ...r, role: r.role.id }))
+      };
+    }
+
+    function saveCurrentToHistory() {
+      const item = currentHistoryItem();
+      state.history.unshift(item);
+      state.history = state.history.slice(0, 30);
+      localStorage.setItem('consensus_history_v2', JSON.stringify(state.history));
+      renderHistory();
+    }
+
+    function replaceCurrentHistory() {
+      const item = currentHistoryItem();
+      const idx = state.history.findIndex(x => x.id === item.id);
+      if (idx >= 0) state.history[idx] = item;
+      else state.history.unshift(item);
+      state.history = state.history.slice(0, 30);
+      localStorage.setItem('consensus_history_v2', JSON.stringify(state.history));
+      renderHistory();
+    }
+
+    function loadHistory() {
+      try { return JSON.parse(localStorage.getItem('consensus_history_v2') || '[]'); }
+      catch { return []; }
+    }
+
+    function renderHistory() {
+      if (!state.history.length) {
+        els.historyList.innerHTML = '<div class="empty">暂无历史记录。</div>';
+        return;
+      }
+      els.historyList.innerHTML = state.history.map(item => `
+        <div class="history-item">
+          <div class="history-title">${safeText(item.proposition || item.original).slice(0, 120)}</div>
+          <div class="history-meta">${safeText(item.createdAt)}｜${safeText(item.final?.conclusionState || '结构化报告')}</div>
+          <div class="history-actions">
+            <button class="mini-btn" data-load="${item.id}">载入</button>
+            <button class="mini-btn" data-copy="${item.id}">复制结论</button>
+          </div>
+        </div>`).join('');
+      els.historyList.querySelectorAll('[data-load]').forEach(btn => btn.onclick = () => loadHistoryItem(btn.dataset.load));
+      els.historyList.querySelectorAll('[data-copy]').forEach(btn => btn.onclick = () => copyHistoryFinal(btn.dataset.copy));
+    }
+
+    function loadHistoryItem(id) {
+      const item = state.history.find(x => x.id === id);
+      if (!item) return;
+      resetRunVisual();
+      state.original = item.original;
+      state.proposition = item.proposition || '';
+      state.normalizedFull = item.normalizedFull || item.proposition || '';
+      state.dimensionAnalysis = item.dimensionAnalysis || '';
+      state.kernelAnalysis = item.kernelAnalysis || '';
+      state.realityAnalysis = item.realityAnalysis || '';
+      state.actionPlan = item.actionPlan || '';
+      state.selfCheck = item.selfCheck || '';
+      state.independent = item.independent || {};
+      state.discussion = (item.discussion || []).map(m => ({ ...m, role: ROLES.find(r => r.id === (m.role?.id || m.role)) || { id: 'unknown', name: '未知角色', icon: 'AI' } }));
+      state.draft = item.draft || '';
+      state.reviews = (item.reviews || []).map(r => ({ ...r, role: ROLES.find(x => x.id === r.role) || { id: 'unknown', name: '未知角色', icon: 'AI' } }));
+      state.final = item.final;
+      state.readableReport = item.readableReport || null;
+      els.userView.value = item.original;
+      els.normalizeBody.innerHTML = `<div class="result-box"><h3>命题标准化</h3><p>${safeText(state.normalizedFull)}</p></div>`;
+      els.dimensionsBody.innerHTML = `<div class="result-box"><h3>通用维度拆解</h3><p>${safeText(state.dimensionAnalysis)}</p></div>`;
+      if (els.kernelBody) els.kernelBody.innerHTML = `<div class="result-box"><h3>合理内核提炼</h3><p>${safeText(state.kernelAnalysis)}</p></div>`;
+      if (els.realityBody) els.realityBody.innerHTML = `<div class="result-box"><h3>现实语境解释</h3><p>${safeText(state.realityAnalysis)}</p></div>`;
+      renderIndependent();
+      renderDiscussionAll();
+      els.draftBody.innerHTML = `<div class="result-box"><h3>主持人综合底稿</h3><p>${safeText(state.draft)}</p></div>`;
+      if (els.actionBody) els.actionBody.innerHTML = `<div class="result-box"><h3>行动转化</h3><p>${safeText(state.actionPlan)}</p></div>`;
+      if (els.selfCheckBody) els.selfCheckBody.innerHTML = `<div class="result-box"><h3>最终质量自检</h3><p>${safeText(state.selfCheck)}</p></div>`;
+      renderReviews();
+      renderFinal();
+      ['normalize','dimensions','independent','discuss','kernel','reality','draft','action','review','report','selfcheck'].forEach(k => setStatus(k, '已载入', 'done'));
+      setRunStatus('已载入历史', 'done');
+      setProgress(100, '历史记录已载入。');
+      setView('result');
+    }
+
+    async function copyHistoryFinal(id) {
+      const item = state.history.find(x => x.id === id);
+      if (!item) return;
+      await navigator.clipboard.writeText(item.readableReport?.content || item.final?.content || '');
+      alert(item.readableReport?.content ? '已复制用户阅读版报告。' : '已复制最终结论。');
+    }
+
+    function exportCurrent() {
+      const data = {
+        original: state.original,
+        proposition: state.proposition,
+        normalizedFull: state.normalizedFull,
+        dimensionAnalysis: state.dimensionAnalysis,
+        kernelAnalysis: state.kernelAnalysis,
+        realityAnalysis: state.realityAnalysis,
+        actionPlan: state.actionPlan,
+        selfCheck: state.selfCheck,
+        independent: state.independent,
+        discussion: state.discussion.map(m => ({ round: m.round, role: m.role.name, content: m.content, time: m.time })),
+        draft: state.draft,
+        reviews: state.reviews.map(r => ({ role: r.role.name, stable: r.stable, conditional: r.conditional, kernelAdequacy: r.kernelAdequacy, realityAdequacy: r.realityAdequacy, actionAdequacy: r.actionAdequacy, insufficient: r.insufficient, overAbsolute: r.overAbsolute, unknowabilityDrift: r.unknowabilityDrift, termOverload: r.termOverload, missing: r.missing, disagreements: r.disagreements, pseudoAuthority: r.pseudoAuthority, stateSuggestion: r.stateSuggestion, mustContinue: r.mustContinue, requiredRevision: r.requiredRevision })),
+        final: state.final,
+        readableReport: state.readableReport,
+        exportedAt: nowText()
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `multi-ai-consensus-quality-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function clearCurrent() {
+      if (state.running) return;
+      resetRunVisual();
+      els.userView.value = '';
+      setRunStatus('待开始', '');
+    }
+
+    function clearHistory() {
+      if (!confirm('确定清空全部历史记录？')) return;
+      state.history = [];
+      localStorage.removeItem('consensus_history_v2');
+      renderHistory();
+    }
+
+    function demoLLM(role, messages) {
+      const last = messages[messages.length - 1]?.content || '';
+      const originalMatch = last.match(/用户原始观点：\n([\s\S]*?)(?:\n\n|$)/);
+      const original = originalMatch?.[1]?.trim() || els.userView.value.trim() || '用户观点';
+
+      return new Promise(resolve => {
+        setTimeout(() => {
+          if (last.includes('命题标准化')) {
+            resolve(`【原始命题】\n${original}\n\n【标准化命题】\n在限定对象、范围、时间尺度和评价标准后，判断「${original}」在哪些条件下成立、哪些条件下不成立。\n\n【关键概念】\n- 原命题中的核心判断词\n- 判断对象\n- 适用范围\n- 评价标准\n\n【判断对象】\n原命题实际讨论的对象，而不是所有相似对象。\n\n【判断范围】\n需要区分局部情况与全部情况，不能默认推广。\n\n【评价标准】\n事实成立性、可行性、风险、收益、长期影响。\n\n【不能直接下结论的部分】\n原命题可能存在范围过宽、概念混杂和条件不足，必须先拆分再判断。`);
+          } else if (last.includes('通用维度拆解')) {
+            resolve(`| 维度 | 需要区分的问题 | 对结论的影响 |\n|---|---|---|\n| 概念维度 | 关键词是否有多种含义 | 防止偷换概念 |\n| 对象维度 | 是否包含不同类型对象 | 防止一类对象覆盖全部对象 |\n| 范围维度 | 是局部成立还是整体成立 | 决定结论能否推广 |\n| 时间维度 | 短期、中期、长期是否不同 | 避免静态判断 |\n| 条件维度 | 什么条件下成立或不成立 | 形成条件性结论 |\n| 主体维度 | 不同主体资源与目标是否不同 | 防止忽略个体差异 |\n| 标准维度 | 换评价标准结论是否变化 | 防止单一标准垄断判断 |\n| 证据维度 | 哪些是事实、推测、价值判断 | 降低伪确定性 |\n| 反例维度 | 是否存在削弱绝对判断的反例 | 防止过度绝对化 |\n| 边界维度 | 适用边界在哪里 | 明确结论外推限制 |`);
+          } else if (last.includes('完全不参考其他 AI')) {
+            resolve(`1. 相对稳定的判断\n原命题不能直接整体判断，必须先限定对象、范围和评价标准。\n\n2. 条件性判断\n如果讨论的是狭义对象，结论可能较强；如果讨论的是广义对象，结论需要降级。\n\n3. 证据不足\n当前缺少具体对象、时间尺度、比较标准和反例检查。\n\n4. 过度绝对化表达\n凡包含“全部、一定、没有任何、等于零”的表述都需要降级。\n\n5. 缺失维度\n主体差异、长期变化、评价标准差异。\n\n6. 不应抹平的分歧\n风险判断与可能性判断不应互相覆盖。\n\n7. 后续追问\n这个命题的适用对象和评价标准分别是什么？`);
+          } else if (last.includes('当前是否已有明确主判断') || last.includes('本轮最需要修正或限定的判断')) {
+            resolve(`1. 本轮最需要修正或限定的判断：\n不能把局部成立直接写成整体成立。\n\n2. 问题类型：\n范围过宽 / 主体差异 / 过度绝对化。\n\n3. 反例或边界条件：\n只要存在不同主体、不同条件或不同时间尺度下的反例，绝对判断就必须降级。\n\n4. 仍缺失的维度：\n证据来源与评价标准。\n\n5. 不应强行抹平的分歧：\n“现实难度高”和“没有可能性”不是同一判断。\n\n6. 更稳的条件化表述：\n在某些限定条件下该判断较可能成立，但不能推广到全部情况。\n\n7. 下一轮必须检查的问题：\n是否存在足以削弱绝对结论的反例？`);
+          } else if (last.includes('合理内核提炼者') || last.includes('原命题最强版本是什么')) {
+            resolve(`1. 原命题最强版本是什么？
+在去掉绝对化后，它可以改写为：在特定对象、特定场景和特定资源约束下，该判断揭示的风险较常见，不能被少数反例轻易抹掉。
+
+2. 它抓住了什么现实问题？
+它抓住的是现实中的约束、利益结构、主体差异和局部经验可能具有警示价值的问题。
+
+3. 哪些部分大体成立？
+“大体存在某种风险或倾向”可以保留，但必须限定范围。
+
+4. 哪些部分说过头、必须降级？
+“全部、必然、没有任何可能、等于零”等表达必须降级。
+
+5. 降级后更准确的表达是什么？
+原命题如果改成“在某些条件下，这种风险明显增加，因此普通人应谨慎处理”，就更接近现实。
+
+6. 现实提醒
+不要被绝对表达带偏，也不要因反例存在就忽略主风险。`);
+          } else if (last.includes('现实语境解释者') || last.includes('哪些社会机制')) {
+            resolve(`1. 现实场景
+这个命题通常对应资源竞争、人际合作、利益交换、社会评价或风险决策场景。
+
+2. 影响机制
+常见机制包括资源约束、信息不对称、利益绑定强弱、非正式关系网络、长期声誉和制度环境。
+
+3. 本土语境
+如果涉及中国社会，需要考虑人情网络、权力距离、熟人社会残留、教育/家庭/组织中的非正式资源分配等因素。
+
+4. 案例类型
+可以用“资源稀缺时的求助”“组织内的站队风险”“家庭资源分配差异”等类型分析，但不能编造具体案例或数据。
+
+5. 现实意义
+普通人应把它当成风险提醒，而不是当成绝对规律。
+
+证据强度：中。`);
+          } else if (last.includes('主持人综合底稿') || last.includes('综合草案')) {
+            resolve(`1. 可相对稳定的判断\n原命题需要先限定概念、对象、范围和评价标准，不能直接整体判断。\n\n2. 条件性判断\n如果限定在某一狭义范围内，判断可能成立；如果扩展到所有对象，则证据不足。\n\n3. 多分支判断\n不同主体、时间尺度和评价标准下，结论可能分叉。\n\n4. 主要分歧\n风险是否足以否定可能性；局部经验能否外推为整体规律。\n\n5. 未验证前提\n对象范围、样本证据、评价标准、反例数量。\n\n6. 需要降级的过度表达\n“完全、所有、必然、唯一、等于零”等。\n\n7. 可能的结论状态候选\n条件性结论。\n\n8. 质量复核重点\n检查遗漏维度、过度断言、无依据数字和不可抹平分歧。`);
+          } else if (last.includes('行动转化者') || last.includes('3-7 天内可以做什么验证')) {
+            resolve(`1. 当前最稳的判断原则
+把原命题当成风险提醒，而不是绝对规律；先限定对象、场景和评价标准。
+
+2. 现实中应该怎么做
+先写出更准确的命题版本，再按支持证据、反例、成本、风险分别检查。
+
+3. 应避免什么误区
+避免两种极端：一是把经验绝对化；二是因无法严格证明就放弃判断。
+
+4. 3-7 天内可以验证什么
+列出 3 个真实场景，分别找支持迹象和反例，判断这个命题在哪些条件下更常见。
+
+5. 长期策略
+建立“主判断 + 边界 + 行动策略”的判断模板。
+
+6. 判断错了如何修正
+保留低成本试错，不把一次判断绑定为长期身份或绝对立场。`);
+          } else if (last.includes('质量复核')) {
+            resolve(JSON.stringify({
+              "稳定判断": ["需要先限定命题再判断"],
+              "条件性判断": ["狭义范围内可能成立，广义范围内不能直接成立"],
+              "合理内核是否充分": ["已提炼，但最终报告必须前置"],
+              "现实机制是否充分": ["需要保留本土语境和常见机制"],
+              "行动建议是否充分": ["需要包含3-7天验证和长期策略"],
+              "证据不足": ["缺少具体对象、时间尺度、评价标准和样本证据"],
+              "过度绝对化": ["绝对化词语必须降级为条件化表述"],
+              "不可知论漂移": ["无，但需防止边界淹没主判断"],
+              "术语过密或审稿化": ["需降低术语密度"],
+              "遗漏维度": ["主体差异", "长期变化", "反例边界"],
+              "不可抹平分歧": ["高风险不等于无可能"],
+              "伪权威表达": ["无"],
+              "结论状态建议": "条件性结论",
+              "是否必须继续审议": false,
+              "必须修改": "最终输出必须保留条件、边界和未验证前提"
+            }, null, 2));
+          } else if (last.includes('决策压缩') || last.includes('审议结果报告') || last.includes('最终用户决策报告')) {
+            resolve(`# 审议结果报告
+
+## 1. 直接结论
+原命题按原话通常说过头，但它抓住的风险不是假的。更稳的判断是：它在特定对象、特定场景和特定资源约束下部分成立；普通人应把它当成风险提醒，而不是绝对规律。
+
+## 2. 更准确的说法
+“原命题如果改成：在某些现实条件下，这种风险明显增加，因此需要谨慎评估对象、关系、资源和代价，就更接近现实。”
+
+## 3. 命题的合理内核
+它提醒用户：现实不是只看表面承诺或抽象原则，还要看利益绑定、资源约束、长期关系和可执行代价。
+
+## 4. 它说过头的地方
+过头之处在于把局部倾向写成整体规律，把高风险写成必然结果，把少数反例以外的空间全部抹掉。
+
+## 5. 现实机制
+现实中，资源有限、信息不对称、关系强弱、利益绑定和制度环境都会影响判断。如果涉及中国语境，还要考虑人情网络、权力距离和非正式资源分配。
+
+## 6. 哪些人 / 哪些情况最符合这个判断
+高风险：资源弱、关系浅、只靠单点关系、缺少可交换价值的人。低风险：有稳定能力、长期信用、多渠道支持和可替代方案的人。例外：制度明确、市场化程度高或利益绑定很强的场景。
+
+## 7. 反例与边界
+存在反例，所以不能把命题写成绝对规律。但反例只用于校准，不应抹掉它提示的现实风险。
+
+## 8. 用户应该怎么做
+现在应采用的原则：先承认风险，再限定条件。现实中应把判断拆成对象、场景、资源、关系、代价五项检查。避免把经验绝对化，也避免因为无法严格证明就完全不判断。3-7 天内可找 3 个真实场景做支持/反例对照。长期策略是建立“主判断 + 边界 + 行动预案”的判断模板。
+
+## 9. 一句话带走
+原话说过头，但提醒的风险真实；现实中要把它降级成条件判断，再转化为行动策略。`);
+          } else if (last.includes('完整审议底稿') || last.includes('完整审议底稿整理器')) {
+            resolve(`## 1. 标准化后的问题\n\n【用户原始命题】\n${original}\n\n【标准化命题】\n在限定对象、范围、时间尺度和评价标准后，判断该命题在哪些条件下成立、哪些条件下不成立。\n\n【关键概念拆解】\n- 判断对象：需要明确具体讨论对象。\n- 判断范围：需要区分局部与整体。\n- 评价标准：事实成立性、可行性、风险、收益、长期影响。\n\n【判断范围】\n不默认适用于全部情况。\n\n【评价标准】\n以可验证事实、条件边界和风险收益为准。\n\n---\n\n## 2. 维度拆解\n\n| 维度 | 需要区分的问题 | 对结论的影响 |\n|---|---|---|\n| 概念维度 | 关键词是否多义 | 决定是否存在偷换概念 |\n| 对象维度 | 是否包含不同对象类型 | 防止一类覆盖全部 |\n| 时间维度 | 短中长期是否不同 | 防止静态判断 |\n| 条件维度 | 条件变化是否改变结论 | 形成条件判断 |\n| 主体维度 | 主体资源目标是否不同 | 防止忽略差异 |\n| 标准维度 | 换标准是否改变结论 | 防止单一标准 |\n| 证据维度 | 事实、推测、价值判断如何区分 | 降低伪确定性 |\n| 边界维度 | 结论适用到哪里为止 | 防止外推 |\n\n---\n\n## 3. 已相对稳定的判断\n\n- 原命题不能直接整体判断，必须先限定概念、对象、范围和评价标准。\n- 局部成立不能自动推出整体成立。\n\n---\n\n## 4. 条件性判断\n\n- 如果命题限定在狭义对象和明确条件内，则可能成立。\n- 如果命题扩展到全部对象或所有情况，则当前证据不足。\n\n---\n\n## 5. 主要分歧\n\n| 分歧点 | 观点 A | 观点 B | 当前处理 |\n|---|---|---|---|\n| 风险与可能性 | 风险高可支持谨慎判断 | 风险高不等于无可能 | 保留为条件性分歧 |\n| 局部与整体 | 局部经验有参考价值 | 不能直接外推整体 | 需要证据验证 |\n\n---\n\n## 6. 过度表达降级\n\n| 原表达 | 问题 | 降级后表达 |\n|---|---|---|\n| 所有/全部/完全 | 范围过宽，未检查反例 | 在某些范围内较常见，但不能推广到全部情况 |\n| 必然/一定 | 因果过强，缺少条件 | 可能增加某种结果的概率，但需限定条件 |\n\n---\n\n## 7. 未验证前提\n\n- 具体对象范围。\n- 样本证据。\n- 时间尺度。\n- 评价标准。\n\n---\n\n## 8. 结论状态\n\n结论状态：条件性结论\n\n说明：\n- 多个角度支持“需要限定后再判断”。\n- 具体判断依赖对象、范围和证据。\n- 风险与可能性的分歧仍需保留。\n- 当前只能在限定条件下成立。\n\n---\n\n## 9. 下一步验证方式\n\n- 明确命题讨论的具体对象和范围。\n- 收集支持与反例证据。\n- 分别按短期、中期、长期判断。\n- 用不同评价标准复核结论。`);
+          } else {
+            resolve(`已处理：${role}。`);
+          }
+        }, 250 + Math.random() * 600);
+      });
+    }
+
+    document.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-retry-id]');
+      if (!btn) return;
+      event.preventDefault();
+      event.stopPropagation();
+      runRetryJob(btn.dataset.retryId);
+    });
+
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => setView(tab.dataset.view)));
+    els.startBtn.addEventListener('click', () => runConsensus(false));
+    els.demoBtn.addEventListener('click', () => runConsensus(true));
+    els.stopBtn.addEventListener('click', stopRun);
+    els.exportBtn.addEventListener('click', exportCurrent);
+    els.clearBtn.addEventListener('click', clearCurrent);
+    els.clearHistoryBtn.addEventListener('click', clearHistory);
+
+    renderHistory();
+    setProgress(0, '等待输入观点。');
+  </script>
+</body>
+</html>
