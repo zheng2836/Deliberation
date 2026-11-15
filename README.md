@@ -67,7 +67,7 @@
 ### 在线体验（预览版）
 
 
-https://joker404.xyz/hub/Deliberation/multi_ai_consensus_room_judgment_action_v2.html
+[https://joker404.xyz/hub/Deliberation/multi_ai_consensus_room_judgment_action_v2.html](https://hub.joker404.xyz/deliberation/)
 
 ## 🧱 技术栈（计划）
 
